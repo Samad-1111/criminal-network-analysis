@@ -1,0 +1,294 @@
+[
+  {
+    "record_id": "FIR-2024-101",
+    "timestamp": "2024-03-15T14:30:00Z",
+    "incident_type": "Armed Robbery",
+    "narrative": "Suspect Vikram Sharma alias Vicky was observed meeting Rajesh Kumar near Sector 18 Noida. The suspects were operating a black sedan bearing vehicle number DL-01-AB-1234. Eyewitness saw Vicky making calls using mobile number +91-9876543210.",
+    "entities": [
+      {
+        "entity_type": "Person",
+        "name": "Vikram Sharma",
+        "aliases": ["Vicky"],
+        "phone": "+91-9876543210"
+      },
+      {
+        "entity_type": "Person",
+        "name": "Rajesh Kumar",
+        "aliases": ["Raju"],
+        "phone": "+91-9811223344"
+      },
+      {
+        "entity_type": "Location",
+        "name": "Sector 18 Noida"
+      },
+      {
+        "entity_type": "Vehicle",
+        "registration_number": "DL-01-AB-1234",
+        "model": "Black Sedan"
+      },
+      {
+        "entity_type": "Phone",
+        "number": "+91-9876543210"
+      },
+      {
+        "entity_type": "Phone",
+        "number": "+91-9811223344"
+      },
+      {
+        "entity_type": "Event",
+        "title": "FIR-2024-101: Armed Robbery",
+        "incident_type": "Armed Robbery"
+      }
+    ],
+    "relationships": [
+      {
+        "source": "Vikram Sharma",
+        "target": "Rajesh Kumar",
+        "relationship_type": "CO_ACCUSED",
+        "confidence": 0.95
+      },
+      {
+        "source": "Vikram Sharma",
+        "target": "+91-9876543210",
+        "relationship_type": "COMMUNICATED_WITH",
+        "confidence": 0.99
+      },
+      {
+        "source": "Rajesh Kumar",
+        "target": "+91-9811223344",
+        "relationship_type": "COMMUNICATED_WITH",
+        "confidence": 0.99
+      },
+      {
+        "source": "Vikram Sharma",
+        "target": "DL-01-AB-1234",
+        "relationship_type": "OPERATES_VEHICLE",
+        "confidence": 0.90
+      },
+      {
+        "source": "Vikram Sharma",
+        "target": "Sector 18 Noida",
+        "relationship_type": "LOCATED_AT",
+        "confidence": 0.95
+      },
+      {
+        "source": "Vikram Sharma",
+        "target": "FIR-2024-101: Armed Robbery",
+        "relationship_type": "INVOLVED_IN",
+        "confidence": 0.98
+      },
+      {
+        "source": "Rajesh Kumar",
+        "target": "FIR-2024-101: Armed Robbery",
+        "relationship_type": "INVOLVED_IN",
+        "confidence": 0.98
+      }
+    ]
+  },
+  {
+    "record_id": "LOG-2024-204",
+    "timestamp": "2024-03-18T20:15:00Z",
+    "incident_type": "Surveillance Log",
+    "narrative": "Field informant reported that Rajesh Kumar met with Amit Verma in Connaught Place. Amit Verma was driving car DL-01-AB-1234. Rajesh Kumar was overheard mentioning his associate Vicky from Noida.",
+    "entities": [
+      {
+        "entity_type": "Person",
+        "name": "Rajesh Kumar",
+        "aliases": ["Raju"],
+        "phone": "+91-9811223344"
+      },
+      {
+        "entity_type": "Person",
+        "name": "Amit Verma",
+        "aliases": [],
+        "phone": "+91-9899001122"
+      },
+      {
+        "entity_type": "Location",
+        "name": "Connaught Place"
+      },
+      {
+        "entity_type": "Vehicle",
+        "registration_number": "DL-01-AB-1234"
+      },
+      {
+        "entity_type": "Event",
+        "title": "LOG-2024-204: Surveillance Log",
+        "incident_type": "Surveillance Log"
+      }
+    ],
+    "relationships": [
+      {
+        "source": "Rajesh Kumar",
+        "target": "Amit Verma",
+        "relationship_type": "ASSOCIATED_WITH",
+        "confidence": 0.90
+      },
+      {
+        "source": "Amit Verma",
+        "target": "DL-01-AB-1234",
+        "relationship_type": "OPERATES_VEHICLE",
+        "confidence": 0.88
+      },
+      {
+        "source": "Rajesh Kumar",
+        "target": "Connaught Place",
+        "relationship_type": "LOCATED_AT",
+        "confidence": 0.92
+      },
+      {
+        "source": "Amit Verma",
+        "target": "Connaught Place",
+        "relationship_type": "LOCATED_AT",
+        "confidence": 0.92
+      },
+      {
+        "source": "Rajesh Kumar",
+        "target": "LOG-2024-204: Surveillance Log",
+        "relationship_type": "INVOLVED_IN",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "record_id": "FIR-2024-305",
+    "timestamp": "2024-03-25T11:00:00Z",
+    "incident_type": "Extortion Threat",
+    "narrative": "A merchant in Karol Bagh received threatening phone calls from mobile +91-9876543210. Caller identified himself as Vikram S. and demanded protection money. Call records trace outgoing calls to Sunil Yadav at +91-9822334455.",
+    "entities": [
+      {
+        "entity_type": "Person",
+        "name": "Vikram S.",
+        "aliases": ["Vicky"],
+        "phone": "+91-9876543210"
+      },
+      {
+        "entity_type": "Person",
+        "name": "Sunil Yadav",
+        "aliases": [],
+        "phone": "+91-9822334455"
+      },
+      {
+        "entity_type": "Location",
+        "name": "Karol Bagh"
+      },
+      {
+        "entity_type": "Phone",
+        "number": "+91-9876543210"
+      },
+      {
+        "entity_type": "Phone",
+        "number": "+91-9822334455"
+      },
+      {
+        "entity_type": "Event",
+        "title": "FIR-2024-305: Extortion Threat",
+        "incident_type": "Extortion Threat"
+      }
+    ],
+    "relationships": [
+      {
+        "source": "Vikram S.",
+        "target": "+91-9876543210",
+        "relationship_type": "COMMUNICATED_WITH",
+        "confidence": 0.99
+      },
+      {
+        "source": "+91-9876543210",
+        "target": "+91-9822334455",
+        "relationship_type": "COMMUNICATED_WITH",
+        "confidence": 0.95
+      },
+      {
+        "source": "Sunil Yadav",
+        "target": "+91-9822334455",
+        "relationship_type": "COMMUNICATED_WITH",
+        "confidence": 0.98
+      },
+      {
+        "source": "Vikram S.",
+        "target": "Karol Bagh",
+        "relationship_type": "LOCATED_AT",
+        "confidence": 0.85
+      },
+      {
+        "source": "Vikram S.",
+        "target": "FIR-2024-305: Extortion Threat",
+        "relationship_type": "INVOLVED_IN",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "record_id": "FIR-2024-410",
+    "timestamp": "2024-04-02T18:45:00Z",
+    "incident_type": "Vehicle Theft",
+    "narrative": "A motorcycle was stolen from Rohini Sector 7. Suspect identified as Mohit Gupta was apprehended with co-suspect Amit Verma driving getaway vehicle UP-16-XY-9876.",
+    "entities": [
+      {
+        "entity_type": "Person",
+        "name": "Mohit Gupta",
+        "aliases": ["Monu"],
+        "phone": "+91-9833445566"
+      },
+      {
+        "entity_type": "Person",
+        "name": "Amit Verma",
+        "aliases": [],
+        "phone": "+91-9899001122"
+      },
+      {
+        "entity_type": "Location",
+        "name": "Rohini Sector 7"
+      },
+      {
+        "entity_type": "Vehicle",
+        "registration_number": "UP-16-XY-9876",
+        "model": "Motorcycle"
+      },
+      {
+        "entity_type": "Event",
+        "title": "FIR-2024-410: Vehicle Theft",
+        "incident_type": "Vehicle Theft"
+      }
+    ],
+    "relationships": [
+      {
+        "source": "Mohit Gupta",
+        "target": "Amit Verma",
+        "relationship_type": "CO_ACCUSED",
+        "confidence": 0.96
+      },
+      {
+        "source": "Mohit Gupta",
+        "target": "UP-16-XY-9876",
+        "relationship_type": "OPERATES_VEHICLE",
+        "confidence": 0.92
+      },
+      {
+        "source": "Amit Verma",
+        "target": "UP-16-XY-9876",
+        "relationship_type": "OPERATES_VEHICLE",
+        "confidence": 0.90
+      },
+      {
+        "source": "Mohit Gupta",
+        "target": "Rohini Sector 7",
+        "relationship_type": "LOCATED_AT",
+        "confidence": 0.95
+      },
+      {
+        "source": "Mohit Gupta",
+        "target": "FIR-2024-410: Vehicle Theft",
+        "relationship_type": "INVOLVED_IN",
+        "confidence": 0.99
+      },
+      {
+        "source": "Amit Verma",
+        "target": "FIR-2024-410: Vehicle Theft",
+        "relationship_type": "INVOLVED_IN",
+        "confidence": 0.99
+      }
+    ]
+  }
+]
