@@ -16,6 +16,9 @@ export default function App() {
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [recommendationsError, setRecommendationsError] = useState(null);
 
+  // Phase D: selected entity for graph highlight
+  const [selectedEntityId, setSelectedEntityId] = useState(null);
+
   // Header status
   const [backendStatus, setBackendStatus] = useState('loading');
 
@@ -59,6 +62,12 @@ export default function App() {
     }
   }, []);
 
+  // Phase D: When a recommendation card is clicked, highlight its first target entity in the graph
+  const handleRecommendationClick = useCallback((rec) => {
+    const targetId = rec?.target_entities?.[0]?.id ?? null;
+    setSelectedEntityId((prev) => (prev === targetId ? null : targetId));
+  }, []);
+
   // Initial load
   useEffect(() => {
     loadGraph();
@@ -74,12 +83,15 @@ export default function App() {
           loading={graphLoading}
           error={graphError}
           onRetry={loadGraph}
+          selectedEntityId={selectedEntityId}
         />
         <RecommendationPanel
           recommendationsData={recommendationsData}
           loading={recommendationsLoading}
           error={recommendationsError}
           onRetry={loadRecommendations}
+          selectedEntityId={selectedEntityId}
+          onRecommendationClick={handleRecommendationClick}
         />
       </main>
     </div>

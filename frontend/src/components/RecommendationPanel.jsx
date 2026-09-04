@@ -10,7 +10,8 @@ import {
   ShieldAlert, 
   FileText,
   TrendingUp,
-  Info
+  Info,
+  MapPin
 } from 'lucide-react';
 
 /**
@@ -65,6 +66,8 @@ export default function RecommendationPanel({
   loading = false,
   error = null,
   onRetry,
+  selectedEntityId = null,
+  onRecommendationClick,
 }) {
   const recommendations = recommendationsData?.recommendations || [];
   const totalCount = recommendationsData?.summary?.total_recommendations ?? recommendations.length;
@@ -153,13 +156,23 @@ export default function RecommendationPanel({
           const connectionCount = rec.supporting_evidence?.connection_count ?? 0;
           const recordCount = rec.supporting_evidence?.record_ids?.length ?? 0;
 
+          // Phase D: detect whether this card's primary entity is currently selected
+          const cardTargetId = rec.target_entities?.[0]?.id ?? null;
+          const isActive = cardTargetId !== null && cardTargetId === selectedEntityId;
+
           return (
             <div
               key={rec.recommendation_id || rank}
-              className={`p-3 rounded-lg border transition-all duration-150 ${
-                isTopRank
-                  ? 'bg-slate-900/90 border-blue-500/40 shadow-xs ring-1 ring-blue-500/20'
-                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700/80'
+              role="button"
+              tabIndex={0}
+              onClick={() => onRecommendationClick?.(rec)}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onRecommendationClick?.(rec)}
+              className={`p-3 rounded-lg border transition-all duration-150 cursor-pointer ${
+                isActive
+                  ? 'bg-orange-950/30 border-orange-500/70 shadow-[0_0_12px_2px_rgba(249,115,22,0.25)] ring-1 ring-orange-500/40'
+                  : isTopRank
+                  ? 'bg-slate-900/90 border-blue-500/40 shadow-xs ring-1 ring-blue-500/20 hover:border-blue-400/60'
+                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-600 hover:bg-slate-900/80'
               }`}
             >
               {/* Card Header: Rank, Type & Score */}
@@ -224,7 +237,12 @@ export default function RecommendationPanel({
                   </span>
                 </div>
 
-                {rec.recommendation_id && (
+                {isActive ? (
+                  <span className="inline-flex items-center gap-1 text-orange-400 font-semibold">
+                    <MapPin className="w-3 h-3" />
+                    <span>Locate in graph</span>
+                  </span>
+                ) : rec.recommendation_id && (
                   <span className="text-slate-500">
                     {rec.recommendation_id}
                   </span>
