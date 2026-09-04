@@ -4,9 +4,11 @@ Provides deterministic, explainable decision-support recommendations for
 criminal network investigations based on network topology, evidence confidence,
 and optional identity resolution candidates.
 
-Implements an Adaptive Relative Investigation Ranking System that orders
+Implements an Absolute + Relative Evidence-Aware Network Importance Model
+combined with an Adaptive Relative Investigation Ranking System. Orders
 investigative leads (Rank 1, 2, 3...) relative to available evidence in the
-specific case, functioning reliably across both small/sparse and large networks.
+specific case while preventing small-network topology artifacts from artificially
+inflating absolute priority.
 
 Adheres strictly to decision-support principles: does not make autonomous
 enforcement decisions, does not predict crimes, and does not assert guilt.
@@ -15,12 +17,23 @@ from datetime import datetime, timezone
 import re
 from typing import Dict, List, Any, Optional, Tuple, Set
 
-# --- Configurable Scoring Weights (Must sum to 100.0) ---
+# --- Configurable Overall Scoring Component Weights (Must sum to 100.0) ---
 NETWORK_IMPORTANCE_WEIGHT: float = 35.0
 EVIDENCE_STRENGTH_WEIGHT: float = 25.0
 INFORMATION_GAIN_WEIGHT: float = 20.0
 TIME_SENSITIVITY_WEIGHT: float = 15.0
 ENTITY_VALUE_WEIGHT: float = 5.0
+
+# --- Network Importance Sub-Component Weights (Must sum to 1.0) ---
+NET_IMP_RELATIVE_CONNECTIVITY_WEIGHT: float = 0.30
+NET_IMP_ABSOLUTE_CONNECTION_WEIGHT: float = 0.30
+NET_IMP_MULTI_RECORD_WEIGHT: float = 0.20
+NET_IMP_BRIDGE_WEIGHT: float = 0.20
+
+# --- Saturation & Scaling Constants ---
+ABSOLUTE_CONNECTION_SATURATION: int = 8      # 8+ connections = 1.0 absolute connection support
+MULTI_RECORD_SATURATION: int = 4             # 4+ distinct records = 1.0 multi-record support
+BRIDGE_NETWORK_SIZE_NORMALIZER: float = 6.0  # Scales bridge importance smoothly by network size
 
 # --- Configurable Thresholds ---
 LOW_CONFIDENCE_THRESHOLD: float = 0.80
@@ -103,7 +116,6 @@ def calculate_time_sensitivity(timestamps: List[Any]) -> float:
     newest_dt = max(valid_dts)
     now = datetime.now(timezone.utc)
     if newest_dt > now:
-        # If timestamp is in future relative to system clock, normalize to 1.0
         return 1.0
 
     days_ago = (now - newest_dt).total_seconds() / 86400.0
@@ -117,6 +129,74 @@ def calculate_time_sensitivity(timestamps: List[Any]) -> float:
         return round(max(0.2, 0.8 - ((days_ago - 30) / 400.0)), 2)
     else:
         return 0.1
+
+
+def calculate_network_importance(
+    connection_count: int,
+    max_network_connections: int,
+    distinct_records_count: int,
+    betweenness_centrality: float,
+    total_nodes: int,
+    average_confidence: float,
+) -> Tuple[float, Dict[str, float]]:
+    """Compute an explainable, evidence-aware network importance score (0.0 to 1.0).
+
+    Blends:
+    - Relative connectivity within the current investigation
+    - Absolute connection volume support
+    - Multi-record evidence corroboration
+    - Bridge / connector significance scaled by network structure
+    - Evidence quality adjustment (prevents weak evidence from yielding inflated topology score)
+
+    Returns:
+        (final_network_importance, network_importance_breakdown)
+    """
+    # 1. Relative Connectivity in this investigation (0.0 to 1.0)
+    rel_conn = connection_count / max(1, max_network_connections)
+    rel_conn = max(0.0, min(1.0, rel_conn))
+
+    # 2. Absolute Connection Support (0.0 to 1.0)
+    # Smooth saturation: 1 conn -> 0.125, 2 conn -> 0.25, 4 conn -> 0.50, 8+ conn -> 1.0
+    abs_conn = max(0.0, min(1.0, connection_count / max(1, ABSOLUTE_CONNECTION_SATURATION)))
+
+    # 3. Multi-Record Evidence Support (0.0 to 1.0)
+    # Smooth saturation: 1 record -> 0.25, 2 records -> 0.50, 4+ records -> 1.0
+    multi_rec = max(0.0, min(1.0, distinct_records_count / max(1, MULTI_RECORD_SATURATION)))
+
+    # 4. Bridge / Connector Significance (0.0 to 1.0)
+    # Scale betweenness by network size and actual connection volume so tiny 2-node graphs don't inflate
+    size_factor = (
+        min(1.0, max(0.0, (total_nodes - 2) / max(1.0, BRIDGE_NETWORK_SIZE_NORMALIZER - 2)))
+        if total_nodes > 2
+        else 0.0
+    )
+    conn_factor = min(1.0, connection_count / 2.0)
+    bridge_val = max(0.0, min(1.0, betweenness_centrality * size_factor * conn_factor * 1.5))
+
+    # Raw composite topology importance before evidence quality scaling
+    raw_topo_importance = (
+        rel_conn * NET_IMP_RELATIVE_CONNECTIVITY_WEIGHT
+        + abs_conn * NET_IMP_ABSOLUTE_CONNECTION_WEIGHT
+        + multi_rec * NET_IMP_MULTI_RECORD_WEIGHT
+        + bridge_val * NET_IMP_BRIDGE_WEIGHT
+    )
+
+    # 5. Evidence-Quality Adjustment (0.20 to 1.0)
+    # Scales topology importance by evidence confidence: weak evidence directly downscales topology
+    evidence_adj = max(0.20, min(1.0, average_confidence))
+
+    final_net_imp = round(max(0.0, min(1.0, raw_topo_importance * evidence_adj)), 2)
+
+    breakdown = {
+        "relative_connectivity": round(rel_conn, 2),
+        "absolute_connection_support": round(abs_conn, 2),
+        "multi_record_support": round(multi_rec, 2),
+        "bridge_importance": round(bridge_val, 2),
+        "evidence_adjustment": round(evidence_adj, 2),
+        "final_network_importance": final_net_imp,
+    }
+
+    return final_net_imp, breakdown
 
 
 def compute_priority_score(
@@ -193,8 +273,10 @@ def generate_next_best_actions(
 ) -> Dict[str, Any]:
     """Generate explainable Next-Best-Action recommendations from criminal network data.
 
-    Applies an adaptive relative investigation ranking system that orders investigative
-    leads (Rank 1, 2, 3...) relative to available evidence in the current investigation.
+    Applies an Absolute + Relative Evidence-Aware Network Importance Model combined
+    with an adaptive relative investigation ranking system that orders investigative
+    leads (Rank 1, 2, 3...) without allowing small-network centrality artifacts to inflate
+    absolute priority.
 
     Args:
         network: Output dictionary from graph_builder with "nodes", "edges", "metrics".
@@ -209,6 +291,7 @@ def generate_next_best_actions(
 
     nodes = network.get("nodes", [])
     edges = network.get("edges", [])
+    total_nodes = len(nodes)
     
     # Map node id to node data
     node_map: Dict[str, Dict[str, Any]] = {n.get("id", ""): n for n in nodes if "id" in n}
@@ -245,10 +328,10 @@ def generate_next_best_actions(
             continue
 
         # Collect edge evidence
-        record_ids = sorted(list({
-            e.get("source_record_id")
+        valid_records = sorted(list({
+            str(e.get("source_record_id"))
             for e in inc_edges
-            if e.get("source_record_id") and e.get("source_record_id") != "UNKNOWN"
+            if e.get("source_record_id") and str(e.get("source_record_id")).upper() not in ("UNKNOWN", "NONE", "")
         }))
         rel_types = sorted(list({e.get("relationship_type") for e in inc_edges if e.get("relationship_type")}))
         confidences = [float(e.get("confidence", 0.75)) for e in inc_edges if e.get("confidence") is not None]
@@ -258,8 +341,24 @@ def generate_next_best_actions(
         entity_val = ENTITY_TYPE_WEIGHTS.get(entity_type.lower(), 0.50)
         time_sens = calculate_time_sensitivity(timestamps)
 
-        # Differentiate between Network Connector and High Value Entity adaptively
-        is_connector = bet_c > 0.0 and (bet_c >= deg_c or bet_c >= 0.08)
+        # Compute Absolute + Relative Evidence-Aware Network Importance
+        net_importance, net_breakdown = calculate_network_importance(
+            connection_count=connection_count,
+            max_network_connections=max_node_connections,
+            distinct_records_count=len(valid_records),
+            betweenness_centrality=bet_c,
+            total_nodes=total_nodes,
+            average_confidence=avg_confidence,
+        )
+
+        # Differentiate between Network Connector and High Value Entity
+        # Meaningful bridge requires genuine structural separation and multiple connections
+        is_connector = (
+            bet_c > 0.0
+            and total_nodes > 3
+            and connection_count >= 2
+            and (bet_c >= deg_c or bet_c >= 0.08)
+        )
 
         base_reasons: List[str] = []
 
@@ -267,30 +366,27 @@ def generate_next_best_actions(
             action_type = ACTION_REVIEW_NETWORK_CONNECTOR
             title = f"Review network connector entity: {label}"
             base_reasons.append(
-                f"Entity '{label}' exhibits notable betweenness centrality ({bet_c:.2f}), serving as a bridge between distinct segments of the evidence network."
+                f"Entity '{label}' exhibits notable betweenness centrality ({bet_c:.2f}), serving as a structural connector between distinct segments of the evidence network."
             )
             if connection_count > 0:
                 base_reasons.append(
-                    f"Connected across {connection_count} evidence relationship(s) in {len(record_ids)} source record(s)."
+                    f"Connected across {connection_count} evidence relationship(s) in {len(valid_records)} distinct source record(s)."
                 )
-            # Scoring components
-            net_importance = min(1.0, bet_c * 2.0 + deg_c * 0.5)
             info_gain = 0.85
         else:
             action_type = ACTION_INVESTIGATE_HIGH_VALUE_ENTITY
             title = f"Review highly connected entity: {label}"
             base_reasons.append(
-                f"Review entity '{label}' because of its high relative network connectivity (degree centrality: {deg_c:.2f}, {connection_count} connection(s))."
+                f"Review entity '{label}' because of its network connectivity ({connection_count} direct connection(s), degree centrality: {deg_c:.2f})."
             )
-            if bet_c > 0.0:
+            if bet_c > 0.0 and total_nodes > 3:
                 base_reasons.append(
                     f"Also provides structural connectivity across the graph (betweenness centrality: {bet_c:.2f})."
                 )
-            if record_ids:
+            if valid_records:
                 base_reasons.append(
-                    f"Mentioned across {len(record_ids)} evidence record(s) with average confidence {avg_confidence:.2f}."
+                    f"Corroborated across {len(valid_records)} distinct source record(s) with average confidence {avg_confidence:.2f}."
                 )
-            net_importance = min(1.0, deg_c * 1.5 + (connection_count / max(1, max_node_connections) * 0.4))
             info_gain = 0.75
 
         score, level, breakdown = compute_priority_score(
@@ -315,12 +411,13 @@ def generate_next_best_actions(
             ],
             "reasons": base_reasons,
             "supporting_evidence": {
-                "record_ids": record_ids,
+                "record_ids": valid_records,
                 "relationship_types": rel_types,
                 "average_confidence": avg_confidence,
                 "connection_count": connection_count,
             },
             "score_breakdown": breakdown,
+            "network_importance_breakdown": net_breakdown,
             "_dedup_key": f"node:{node_id}",
         })
 
@@ -348,12 +445,24 @@ def generate_next_best_actions(
         tgt_label = tgt_node.get("label", tgt_id)
 
         rec_id = edge.get("source_record_id", "UNKNOWN")
+        valid_rec_ids = [rec_id] if rec_id and str(rec_id).upper() not in ("UNKNOWN", "NONE", "") else []
         rel_type = edge.get("relationship_type", "ASSOCIATED_WITH")
         timestamp = edge.get("timestamp")
 
-        # Scores
-        avg_deg = (float(src_node.get("degree_centrality", 0.0)) + float(tgt_node.get("degree_centrality", 0.0))) / 2.0
-        net_importance = min(1.0, max(0.3, avg_deg * 2.0))
+        # Network importance for edge review reflects endpoint connectivity without inflating
+        src_conns = len(node_incident_edges.get(src_id, []))
+        tgt_conns = len(node_incident_edges.get(tgt_id, []))
+        avg_conns = (src_conns + tgt_conns) / 2.0
+        
+        net_importance, net_breakdown = calculate_network_importance(
+            connection_count=int(avg_conns),
+            max_network_connections=max_node_connections,
+            distinct_records_count=len(valid_rec_ids),
+            betweenness_centrality=0.0,
+            total_nodes=total_nodes,
+            average_confidence=confidence,
+        )
+
         info_gain = round(1.0 - confidence, 2)
         time_sens = calculate_time_sensitivity([timestamp] if timestamp else [])
         ent_val = max(
@@ -393,12 +502,13 @@ def generate_next_best_actions(
             ],
             "reasons": base_reasons,
             "supporting_evidence": {
-                "record_ids": [rec_id] if rec_id != "UNKNOWN" else [],
+                "record_ids": valid_rec_ids,
                 "relationship_types": [rel_type],
                 "average_confidence": round(confidence, 2),
                 "connection_count": 1,
             },
             "score_breakdown": breakdown,
+            "network_importance_breakdown": net_breakdown,
             "_dedup_key": str_pair_key,
         })
 
@@ -428,12 +538,21 @@ def generate_next_best_actions(
             confidence = float(match.get("confidence", 0.75))
             match_reasons = match.get("reasons", [])
 
-            # Check if either entity is represented in graph to gauge network importance
-            importance_scores = []
+            # Check if either entity is represented in graph to gauge evidence-aware network importance
+            matched_conns = []
             for n_id, n_data in node_map.items():
                 if n_data.get("label", "").lower() in (str(name_a).lower(), str(name_b).lower()):
-                    importance_scores.append(float(n_data.get("degree_centrality", 0.0)))
-            net_importance = max(importance_scores) if importance_scores else 0.40
+                    matched_conns.append(len(node_incident_edges.get(n_id, [])))
+            ent_conn_cnt = max(matched_conns) if matched_conns else 1
+
+            net_importance, net_breakdown = calculate_network_importance(
+                connection_count=ent_conn_cnt,
+                max_network_connections=max_node_connections,
+                distinct_records_count=1,
+                betweenness_centrality=0.0,
+                total_nodes=total_nodes,
+                average_confidence=confidence,
+            )
 
             info_gain = 0.90 if status == "AMBIGUOUS" else 0.80
             ent_val = max(
@@ -481,6 +600,7 @@ def generate_next_best_actions(
                     "connection_count": 1,
                 },
                 "score_breakdown": breakdown,
+                "network_importance_breakdown": net_breakdown,
                 "_dedup_key": ident_key,
             })
 
@@ -554,6 +674,7 @@ def generate_next_best_actions(
             "reasons": updated_reasons,
             "supporting_evidence": item["supporting_evidence"],
             "score_breakdown": item["score_breakdown"],
+            "network_importance_breakdown": item.get("network_importance_breakdown", {}),
             "ranking_context": ranking_context,
         }
         final_recs.append(item_copy)
