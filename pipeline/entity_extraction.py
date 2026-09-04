@@ -22,6 +22,20 @@ ALIAS_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Common Indian investigation location patterns
+LOCATION_PATTERN = re.compile(
+    r"\b(?:Sector\s+\d+[A-Za-z\-]*\s+(?:Noida|Delhi|Gurugram|Gurgaon)|"
+    r"[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2},\s*(?:Noida|Delhi|Mumbai|Bengaluru|Bangalore|Chennai|Hyderabad|Pune|Kolkata)|"
+    r"\b(?:Noida|Delhi|Mumbai|Gurugram|Gurgaon|Bengaluru|Bangalore|Chennai|Hyderabad|Pune|Kolkata)\b)",
+    re.IGNORECASE,
+)
+
+# Person names appearing after common investigation phrases
+PERSON_CONTEXT_PATTERN = re.compile(
+    r"(?:with|suspect|accused|person|individual|seen with|met with)\s+"
+    r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})",
+    re.IGNORECASE,
+)
 FIR_EVENT_PATTERN = re.compile(
     r"\b(?:FIR|LOG|CASE)[-\s]?\d{4}[-\s]?\d+\b",
     re.IGNORECASE,
@@ -131,6 +145,46 @@ def extract_entities_from_text(text: str) -> Dict[str, List[Dict[str, Any]]]:
                     })
 
     # 2. Extract Alias pairs (e.g. 'Vikram Sharma alias Vicky')
+            # 2. Investigation-specific fallback location extraction
+    for match in LOCATION_PATTERN.finditer(text):
+        location_name = match.group(0).strip()
+
+        if (
+            len(location_name) > 2
+            and location_name.lower() not in seen_locations
+        ):
+            seen_locations.add(location_name.lower())
+
+            locations.append({
+                "entity_type": "Location",
+                "name": location_name,
+                "confidence": 0.85,
+            })
+
+    # 3. Context-based fallback person extraction
+    for match in PERSON_CONTEXT_PATTERN.finditer(text):
+        person_name = match.group(1).strip()
+
+        # Remove investigation keywords accidentally captured as part of a name
+        person_name = re.sub(
+            r"\s+\b(alias|aka)\b$",
+            "",
+            person_name,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        if (
+            len(person_name) > 2
+            and person_name.lower() not in seen_persons
+        ):
+            seen_persons.add(person_name.lower())
+
+            persons.append({
+                "entity_type": "Person",
+                "name": person_name,
+                "aliases": [],
+                "confidence": 0.82,
+            })
     for match in ALIAS_PATTERN.finditer(text):
         full_name = match.group(1).strip()
         alias_name = match.group(2).strip()
@@ -152,6 +206,7 @@ def extract_entities_from_text(text: str) -> Dict[str, List[Dict[str, Any]]]:
                 "aliases": [alias_name],
                 "confidence": 0.95,
             })
+        
 
     # 3. Extract Phone numbers using regex
     for match in PHONE_PATTERN.finditer(text):
