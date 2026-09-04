@@ -22,6 +22,8 @@ from pipeline.graph_builder import (
     build_criminal_network,
     find_shortest_connection,
 )
+from pipeline.next_best_action import generate_next_best_actions
+
 
 app = FastAPI(
     title="Criminal Network Analysis API",
@@ -93,6 +95,24 @@ class PathSearchRequest(BaseModel):
         None,
         description="Optional custom records. If omitted, default synthetic dataset is used.",
     )
+
+
+class NextBestActionRequest(BaseModel):
+    records: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description="List of intelligence records. If omitted or empty, default synthetic records are used.",
+    )
+    identity_results: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description="Optional list of identity comparison results for disambiguation recommendations.",
+    )
+    max_recommendations: int = Field(
+        10,
+        ge=1,
+        le=50,
+        description="Maximum number of recommendations to return.",
+    )
+
 
 
 # --- Endpoints ---
@@ -222,3 +242,33 @@ def analyze_network_full():
         "network": network,
         "key_suspects_ranked": ranked_nodes[:5],
     }
+
+
+@app.post("/pipeline/next-best-actions", tags=["Pipeline"])
+def next_best_actions_endpoint(request: NextBestActionRequest):
+    """Generate explainable Next-Best-Action investigative recommendations.
+
+    Leverages network topology, edge confidence scores, and optional identity
+    resolution candidates to prioritize evidence verification and intelligence follow-ups.
+    """
+    records = request.records if request.records is not None else load_synthetic_records()
+    if not records:
+        raise HTTPException(status_code=400, detail="No records available to generate recommendations.")
+
+    network = build_criminal_network(records)
+    nba_result = generate_next_best_actions(
+        network=network,
+        identity_results=request.identity_results,
+        max_recommendations=request.max_recommendations,
+    )
+
+    return {
+        "network_summary": {
+            "total_nodes": network.get("metrics", {}).get("total_nodes", len(network.get("nodes", []))),
+            "total_edges": network.get("metrics", {}).get("total_edges", len(network.get("edges", []))),
+            "total_components": network.get("metrics", {}).get("total_components", 0),
+        },
+        "recommendation_summary": nba_result["summary"],
+        "recommendations": nba_result["recommendations"],
+    }
+
