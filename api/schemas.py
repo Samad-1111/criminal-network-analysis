@@ -141,3 +141,8 @@ class InvestigationGraphResponse(BaseModel):
     metrics: dict = Field(default_factory=dict)
 
 
+class InvestigationNextBestActionsResponse(BaseModel):
+    investigation_id: str
+    network_summary: dict = Field(default_factory=dict)
+    recommendation_summary: dict = Field(default_factory=dict)
+    recommendations: list[dict] = Field(default_factory=list)

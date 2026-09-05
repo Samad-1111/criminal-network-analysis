@@ -27,6 +27,7 @@ from api.services.document_processor import extract_text, DocumentProcessingErro
 from api.services.entity_extractor import extract_entities_from_document_text
 from api.services.relationship_extractor import extract_relationships_from_document_text
 from api.services.investigation_graph import get_investigation_graph
+from api.services.investigation_intelligence import get_investigation_next_best_actions
 from api.schemas import (
     InvestigationCreate,
     InvestigationRead,
@@ -39,6 +40,7 @@ from api.schemas import (
     RelationshipRead,
     RelationshipExtractionResponse,
     InvestigationGraphResponse,
+    InvestigationNextBestActionsResponse,
 )
 from data import load_synthetic_records
 from pipeline.entity_extraction import extract_entities_from_text
@@ -883,3 +885,36 @@ def get_investigation_graph_endpoint(
         )
     return get_investigation_graph(db, investigation_id)
 
+
+@app.get(
+    "/investigations/{investigation_id}/next-best-actions",
+    response_model=InvestigationNextBestActionsResponse,
+    tags=["Investigations"],
+)
+def get_investigation_next_best_actions_endpoint(
+    investigation_id: uuid.UUID,
+    max_recommendations: int = 10,
+    db: Session = Depends(get_db),
+):
+    """Generate explainable Next-Best-Action investigative recommendations from real evidence.
+
+    Derives recommendations from actual entities, relationships, network topology metrics,
+    and identity resolution candidates stored in PostgreSQL for this investigation.
+    Returns an empty recommendation set (not an error) when no entities have been
+    extracted yet.
+
+    Args:
+        investigation_id: UUID of the investigation.
+        max_recommendations: Maximum number of recommendations to return (1-50, default 10).
+    """
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    return get_investigation_next_best_actions(
+        db=db,
+        investigation_id=investigation_id,
+        max_recommendations=max(1, min(50, max_recommendations)),
+    )

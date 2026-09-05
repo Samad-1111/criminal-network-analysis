@@ -1,0 +1,6 @@
+record_id,date_time,caller_name,caller_number,receiver_name,receiver_number,duration_seconds,cell_location
+CDR001,2026-08-12 18:05,Vikram Sharma,9876543210,Rajesh Kumar,9123456780,185,"Sector 62, Noida"
+CDR002,2026-08-12 18:42,Rajesh Kumar,9123456780,Vikram Sharma,9876543210,96,"Sector 62, Noida"
+CDR003,2026-08-12 19:15,Vikram Sharma,9876543210,Neha Verma,9988776655,241,"Sector 61, Noida"
+CDR004,2026-08-12 20:05,Neha Verma,9988776655,Rajesh Kumar,9123456780,63,"Sector 62, Noida"
+CDR005,2026-08-13 09:30,Rajesh Kumar,9123456780,Unknown Contact,9000011111,312,Delhi

@@ -1,0 +1,28 @@
+FICTIONAL TRAINING CASE — FIR
+Case Number: FIR/2026/0045
+Investigation: Operation Night Link
+Date of Incident: 12 August 2026
+Location: Sector 62, Noida
+
+Complainant Statement:
+On 12 August 2026 at approximately 20:30, a suspicious meeting was reported near
+the warehouse road in Sector 62, Noida. Witnesses observed Vikram Sharma meeting
+Rajesh Kumar. A dark sedan bearing registration DL-01-AB-1234 was seen near the
+location.
+
+Preliminary information indicates that Vikram Sharma may have contacted Rajesh Kumar
+before the meeting. The two individuals were reportedly discussing movement of an
+unidentified package. Further verification is required.
+
+Known persons mentioned:
+1. Vikram Sharma
+2. Rajesh Kumar
+3. Neha Verma
+
+Known vehicle:
+DL-01-AB-1234
+
+Known location:
+Sector 62, Noida
+
+This document is entirely fictional and created for software testing and demonstration.

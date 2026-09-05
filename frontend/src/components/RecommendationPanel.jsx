@@ -66,11 +66,14 @@ export default function RecommendationPanel({
   loading = false,
   error = null,
   onRetry,
+  onRefresh,
   selectedEntityId = null,
   onRecommendationClick,
+  activeInvestigation = null,
 }) {
   const recommendations = recommendationsData?.recommendations || [];
   const totalCount = recommendationsData?.summary?.total_recommendations ?? recommendations.length;
+  const isLiveMode = activeInvestigation !== null;
 
   return (
     <aside className="w-96 border-l border-slate-800 bg-slate-900/95 flex flex-col shrink-0 h-full select-none">
@@ -84,10 +87,28 @@ export default function RecommendationPanel({
               {totalCount} leads
             </span>
           )}
+          {isLiveMode && (
+            <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-950/70 text-emerald-400 border border-emerald-800/50 animate-pulse">
+              Live
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
-          <ListFilter className="w-3.5 h-3.5 text-slate-500" />
-          <span>Ranked</span>
+        <div className="flex items-center gap-1.5">
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={() => onRefresh()}
+              disabled={loading}
+              title="Refresh recommendations"
+              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          )}
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+            <ListFilter className="w-3.5 h-3.5 text-slate-500" />
+            <span>Ranked</span>
+          </div>
         </div>
       </div>
 
@@ -98,10 +119,12 @@ export default function RecommendationPanel({
           <div className="h-full flex flex-col items-center justify-center py-16 text-center">
             <Loader2 className="w-6 h-6 text-indigo-400 animate-spin mb-3" />
             <p className="text-xs font-medium text-slate-300">
-              Generating Next-Best-Actions...
+              {isLiveMode ? 'Analysing investigation evidence…' : 'Generating Next-Best-Actions...'}
             </p>
             <p className="text-[11px] text-slate-500 mt-1">
-              Evaluating evidence strength and network centrality
+              {isLiveMode
+                ? 'Loading real entities, relationships & network metrics'
+                : 'Evaluating evidence strength and network centrality'}
             </p>
           </div>
         )}
@@ -141,7 +164,9 @@ export default function RecommendationPanel({
               No recommendations available
             </h4>
             <p className="text-[11px] text-slate-500 mt-1 max-w-xs">
-              Add investigation records to generate prioritized decision-support leads.
+              {isLiveMode
+                ? 'Process documents and extract entities in this investigation to generate real recommendations.'
+                : 'Add investigation records to generate prioritized decision-support leads.'}
             </p>
           </div>
         )}

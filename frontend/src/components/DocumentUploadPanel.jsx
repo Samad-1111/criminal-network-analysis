@@ -16,8 +16,27 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Play,
+  Cpu,
+  GitFork,
+  Network,
+  Lightbulb,
+  Check,
+  RotateCcw,
+  AlertCircle,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
-import { uploadDocument, getDocuments, downloadDocument } from '../services/api';
+import {
+  uploadDocument,
+  getDocuments,
+  downloadDocument,
+  processDocument,
+  extractDocumentEntities,
+  extractDocumentRelationships,
+  getInvestigationGraph,
+  getInvestigationNextBestActions,
+} from '../services/api';
 
 const CATEGORIES = [
   { id: 'FIR', label: 'FIR', description: 'First Information Report', icon: FileText, color: 'text-amber-400 border-amber-500/30 bg-amber-500/10' },
@@ -31,7 +50,11 @@ const CATEGORIES = [
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.csv'];
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
-export default function DocumentUploadPanel({ activeInvestigation }) {
+export default function DocumentUploadPanel({
+  activeInvestigation,
+  onGraphRefresh,
+  onRecommendationsRefresh,
+}) {
   const [documents, setDocuments] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('FIR');
@@ -42,7 +65,42 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // Per-document pipeline execution state
+  // docPipelineStates[docId] = {
+  //   running: boolean,
+  //   activeStep: 'process' | 'entities' | 'relationships' | 'graph' | 'nba' | null,
+  //   stepStatus: { process, entities, relationships, graph, nba },
+  //   stepCounts: { entitiesSaved, entitiesTotal, relationshipsSaved, relationshipsTotal, nodes, edges, components, recommendations },
+  //   error: { step: string, message: string } | null,
+  //   summary: Object | null
+  // }
+  const [docPipelineStates, setDocPipelineStates] = useState({});
+  // Expanded pipeline drawer per document
+  const [expandedDocIds, setExpandedDocIds] = useState(new Set());
+
   const fileInputRef = useRef(null);
+
+  // Helper to update a document's pipeline state
+  const updateDocPipelineState = useCallback((docId, updater) => {
+    setDocPipelineStates((prev) => {
+      const current = prev[docId] || {
+        running: false,
+        activeStep: null,
+        stepStatus: {
+          process: 'pending',
+          entities: 'pending',
+          relationships: 'pending',
+          graph: 'pending',
+          nba: 'pending',
+        },
+        stepCounts: {},
+        error: null,
+        summary: null,
+      };
+      const updated = typeof updater === 'function' ? updater(current) : { ...current, ...updater };
+      return { ...prev, [docId]: updated };
+    });
+  }, []);
 
   // Fetch documents for the active investigation
   const loadDocuments = useCallback(async () => {
@@ -66,7 +124,22 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
     loadDocuments();
     setSelectedFile(null);
     setAlertMessage(null);
+    setDocPipelineStates({});
+    setExpandedDocIds(new Set());
   }, [loadDocuments]);
+
+  // Toggle expanded state for document intelligence drawer
+  const toggleDocExpand = (docId) => {
+    setExpandedDocIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(docId)) {
+        next.delete(docId);
+      } else {
+        next.add(docId);
+      }
+      return next;
+    });
+  };
 
   // File validation routine
   const validateFile = (file) => {
@@ -74,7 +147,6 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
 
     const ext = '.' + file.name.split('.').pop().toLowerCase();
 
-    // Check unsupported video / media extensions for graceful warning
     if (['.mp4', '.avi', '.mkv', '.mov', '.mp3', '.wav'].includes(ext)) {
       setAlertMessage({
         type: 'warning',
@@ -184,6 +256,307 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
     }
   };
 
+  // --- Step-by-step and Full Pipeline Orchestration ---
+
+  /**
+   * Run full intelligence pipeline sequentially for a document:
+   * 1. Process Document
+   * 2. Extract Entities
+   * 3. Extract Relationships
+   * 4. Refresh Investigation Graph
+   * 5. Refresh Next-Best Actions
+   */
+  const runFullPipeline = async (doc) => {
+    if (!activeInvestigation?.id || !doc?.id) return;
+
+    const docId = doc.id;
+    const invId = activeInvestigation.id;
+
+    // Ensure pipeline panel is expanded to view progress
+    setExpandedDocIds((prev) => new Set(prev).add(docId));
+
+    // Initialize pipeline state
+    updateDocPipelineState(docId, {
+      running: true,
+      activeStep: 'process',
+      error: null,
+      stepStatus: {
+        process: doc.processing_status === 'COMPLETED' ? 'completed' : 'running',
+        entities: 'pending',
+        relationships: 'pending',
+        graph: 'pending',
+        nba: 'pending',
+      },
+      summary: null,
+    });
+
+    let entityRes = null;
+    let relRes = null;
+    let graphRes = null;
+    let nbaRes = null;
+
+    try {
+      // --- STAGE 1: Process Document ---
+      if (doc.processing_status !== 'COMPLETED') {
+        updateDocPipelineState(docId, (prev) => ({
+          ...prev,
+          activeStep: 'process',
+          stepStatus: { ...prev.stepStatus, process: 'running' },
+        }));
+        await processDocument(invId, docId);
+      }
+      updateDocPipelineState(docId, (prev) => ({
+        ...prev,
+        stepStatus: { ...prev.stepStatus, process: 'completed' },
+      }));
+
+      // --- STAGE 2: Extract Entities ---
+      updateDocPipelineState(docId, (prev) => ({
+        ...prev,
+        activeStep: 'entities',
+        stepStatus: { ...prev.stepStatus, entities: 'running' },
+      }));
+      entityRes = await extractDocumentEntities(invId, docId);
+      updateDocPipelineState(docId, (prev) => ({
+        ...prev,
+        stepStatus: { ...prev.stepStatus, entities: 'completed' },
+        stepCounts: {
+          ...prev.stepCounts,
+          entitiesSaved: entityRes.entities_saved,
+          entitiesTotal: entityRes.entities_total,
+        },
+      }));
+
+      // --- STAGE 3: Extract Relationships ---
+      updateDocPipelineState(docId, (prev) => ({
+        ...prev,
+        activeStep: 'relationships',
+        stepStatus: { ...prev.stepStatus, relationships: 'running' },
+      }));
+      relRes = await extractDocumentRelationships(invId, docId);
+      updateDocPipelineState(docId, (prev) => ({
+        ...prev,
+        stepStatus: { ...prev.stepStatus, relationships: 'completed' },
+        stepCounts: {
+          ...prev.stepCounts,
+          relationshipsSaved: relRes.relationships_saved,
+          relationshipsTotal: relRes.relationships_total,
+        },
+      }));
+
+      // --- STAGE 4: Refresh Investigation Graph ---
+      updateDocPipelineState(docId, (prev) => ({
+        ...prev,
+        activeStep: 'graph',
+        stepStatus: { ...prev.stepStatus, graph: 'running' },
+      }));
+      graphRes = await getInvestigationGraph(invId);
+      if (onGraphRefresh) {
+        await onGraphRefresh(invId);
+      }
+      updateDocPipelineState(docId, (prev) => ({
+        ...prev,
+        stepStatus: { ...prev.stepStatus, graph: 'completed' },
+        stepCounts: {
+          ...prev.stepCounts,
+          nodes: graphRes.metrics?.total_nodes ?? (graphRes.nodes?.length || 0),
+          edges: graphRes.metrics?.total_edges ?? (graphRes.edges?.length || 0),
+          components: graphRes.metrics?.total_components ?? 0,
+        },
+      }));
+
+      // --- STAGE 5: Refresh Next-Best Actions ---
+      updateDocPipelineState(docId, (prev) => ({
+        ...prev,
+        activeStep: 'nba',
+        stepStatus: { ...prev.stepStatus, nba: 'running' },
+      }));
+      nbaRes = await getInvestigationNextBestActions(invId);
+      if (onRecommendationsRefresh) {
+        await onRecommendationsRefresh(invId);
+      }
+      updateDocPipelineState(docId, (prev) => ({
+        ...prev,
+        stepStatus: { ...prev.stepStatus, nba: 'completed' },
+        stepCounts: {
+          ...prev.stepCounts,
+          recommendationsTotal:
+            nbaRes.recommendation_summary?.total_recommendations ?? (nbaRes.recommendations?.length || 0),
+        },
+      }));
+
+      // --- Pipeline Complete: Save Summary ---
+      const summaryData = {
+        entitiesSaved: entityRes.entities_saved,
+        entitiesTotal: entityRes.entities_total,
+        relationshipsSaved: relRes.relationships_saved,
+        relationshipsTotal: relRes.relationships_total,
+        graphNodes: graphRes.metrics?.total_nodes ?? (graphRes.nodes?.length || 0),
+        graphEdges: graphRes.metrics?.total_edges ?? (graphRes.edges?.length || 0),
+        graphComponents: graphRes.metrics?.total_components ?? 0,
+        recommendationsTotal:
+          nbaRes.recommendation_summary?.total_recommendations ?? (nbaRes.recommendations?.length || 0),
+      };
+
+      updateDocPipelineState(docId, {
+        running: false,
+        activeStep: null,
+        summary: summaryData,
+        error: null,
+      });
+
+      // Refresh document list to sync backend state
+      await loadDocuments();
+    } catch (err) {
+      console.error(`Pipeline failed for document ${docId}:`, err);
+
+      // Determine which stage failed based on activeStep
+      setDocPipelineStates((prev) => {
+        const cur = prev[docId] || {};
+        const failedStep = cur.activeStep || 'process';
+        return {
+          ...prev,
+          [docId]: {
+            ...cur,
+            running: false,
+            activeStep: null,
+            stepStatus: {
+              ...cur.stepStatus,
+              [failedStep]: 'failed',
+            },
+            error: {
+              step: failedStep,
+              message: err.message || 'Pipeline execution encountered an unexpected error.',
+            },
+          },
+        };
+      });
+    }
+  };
+
+  // Individual step execution: Process Text
+  const runStepProcess = async (doc) => {
+    if (!activeInvestigation?.id || !doc?.id) return;
+    updateDocPipelineState(doc.id, (prev) => ({
+      ...prev,
+      running: true,
+      activeStep: 'process',
+      error: null,
+      stepStatus: { ...prev.stepStatus, process: 'running' },
+    }));
+
+    try {
+      await processDocument(activeInvestigation.id, doc.id);
+      updateDocPipelineState(doc.id, (prev) => ({
+        ...prev,
+        running: false,
+        activeStep: null,
+        stepStatus: { ...prev.stepStatus, process: 'completed' },
+      }));
+      await loadDocuments();
+    } catch (err) {
+      updateDocPipelineState(doc.id, (prev) => ({
+        ...prev,
+        running: false,
+        activeStep: null,
+        stepStatus: { ...prev.stepStatus, process: 'failed' },
+        error: { step: 'process', message: err.message },
+      }));
+    }
+  };
+
+  // Individual step execution: Extract Entities
+  const runStepEntities = async (doc) => {
+    if (!activeInvestigation?.id || !doc?.id) return;
+    updateDocPipelineState(doc.id, (prev) => ({
+      ...prev,
+      running: true,
+      activeStep: 'entities',
+      error: null,
+      stepStatus: { ...prev.stepStatus, entities: 'running' },
+    }));
+
+    try {
+      const res = await extractDocumentEntities(activeInvestigation.id, doc.id);
+      updateDocPipelineState(doc.id, (prev) => ({
+        ...prev,
+        running: false,
+        activeStep: null,
+        stepStatus: { ...prev.stepStatus, entities: 'completed' },
+        stepCounts: {
+          ...prev.stepCounts,
+          entitiesSaved: res.entities_saved,
+          entitiesTotal: res.entities_total,
+        },
+      }));
+    } catch (err) {
+      updateDocPipelineState(doc.id, (prev) => ({
+        ...prev,
+        running: false,
+        activeStep: null,
+        stepStatus: { ...prev.stepStatus, entities: 'failed' },
+        error: { step: 'entities', message: err.message },
+      }));
+    }
+  };
+
+  // Individual step execution: Extract Relationships
+  const runStepRelationships = async (doc) => {
+    if (!activeInvestigation?.id || !doc?.id) return;
+    updateDocPipelineState(doc.id, (prev) => ({
+      ...prev,
+      running: true,
+      activeStep: 'relationships',
+      error: null,
+      stepStatus: { ...prev.stepStatus, relationships: 'running' },
+    }));
+
+    try {
+      const res = await extractDocumentRelationships(activeInvestigation.id, doc.id);
+      updateDocPipelineState(doc.id, (prev) => ({
+        ...prev,
+        running: false,
+        activeStep: null,
+        stepStatus: { ...prev.stepStatus, relationships: 'completed' },
+        stepCounts: {
+          ...prev.stepCounts,
+          relationshipsSaved: res.relationships_saved,
+          relationshipsTotal: res.relationships_total,
+        },
+      }));
+    } catch (err) {
+      updateDocPipelineState(doc.id, (prev) => ({
+        ...prev,
+        running: false,
+        activeStep: null,
+        stepStatus: { ...prev.stepStatus, relationships: 'failed' },
+        error: { step: 'relationships', message: err.message },
+      }));
+    }
+  };
+
+  // Individual step execution: Refresh Graph & NBA
+  const runStepRefreshIntelligence = async () => {
+    if (!activeInvestigation?.id) return;
+    try {
+      const gRes = await getInvestigationGraph(activeInvestigation.id);
+      if (onGraphRefresh) await onGraphRefresh(activeInvestigation.id);
+
+      const nRes = await getInvestigationNextBestActions(activeInvestigation.id);
+      if (onRecommendationsRefresh) await onRecommendationsRefresh(activeInvestigation.id);
+
+      setAlertMessage({
+        type: 'success',
+        text: `Investigation intelligence refreshed. Network Graph: ${gRes.nodes?.length || 0} nodes, Next-Best Actions: ${nRes.recommendations?.length || 0} recommendations.`,
+      });
+    } catch (err) {
+      setAlertMessage({
+        type: 'error',
+        text: `Failed to refresh intelligence: ${err.message}`,
+      });
+    }
+  };
+
   const formatFileSize = (bytes) => {
     if (!bytes) return '0 B';
     const k = 1024;
@@ -231,7 +604,7 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
 
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800 transition-colors flex items-center gap-1 text-xs"
+          className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800 transition-colors flex items-center gap-1 text-xs cursor-pointer"
         >
           <span className="text-[11px] font-medium">{isCollapsed ? 'Expand Drawer' : 'Collapse'}</span>
           {isCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -240,13 +613,13 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
 
       {/* Drawer Content */}
       {!isCollapsed && (
-        <div className="p-4 space-y-4 max-h-[380px] overflow-y-auto">
+        <div className="p-4 space-y-4 max-h-[440px] overflow-y-auto">
           {/* Active Case Warning Banner if in Demo Mode */}
           {!activeInvestigation && (
             <div className="p-3 rounded bg-amber-950/40 border border-amber-800/50 text-amber-300 text-xs flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Info className="w-4 h-4 shrink-0 text-amber-400" />
-                <span>Select or create an investigation above to enable document uploads and PostgreSQL storage for this case.</span>
+                <span>Select or create an investigation above to enable document uploads, pipeline orchestration, and PostgreSQL storage.</span>
               </div>
             </div>
           )}
@@ -270,7 +643,7 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
               </div>
               <button
                 onClick={() => setAlertMessage(null)}
-                className="text-slate-400 hover:text-slate-200 text-xs"
+                className="text-slate-400 hover:text-slate-200 text-xs cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -296,7 +669,7 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
                         setAlertMessage({ type: 'warning', text: cat.warning });
                       }
                     }}
-                    className={`p-2.5 rounded border text-left transition-all relative ${
+                    className={`p-2.5 rounded border text-left transition-all relative cursor-pointer ${
                       isSelected
                         ? 'bg-blue-900/40 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.2)] ring-1 ring-blue-500/50'
                         : 'bg-slate-800/60 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600'
@@ -321,7 +694,7 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
           {/* 2. Drag & Drop Upload Zone or File Preview Card */}
           <div>
             <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              2. Upload Document
+              2. Upload Document Evidence
             </div>
 
             <input
@@ -378,7 +751,7 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
                     type="button"
                     onClick={() => setSelectedFile(null)}
                     disabled={uploading}
-                    className="text-slate-400 hover:text-red-400 text-xs flex items-center gap-1 transition-colors"
+                    className="text-slate-400 hover:text-red-400 text-xs flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>Cancel</span>
@@ -436,27 +809,37 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
             )}
           </div>
 
-          {/* 3. Uploaded Documents List */}
+          {/* 3. Case Documents & Intelligence Workflow */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                3. Case Documents ({documents.length})
+              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <span>3. Case Documents & Pipeline Orchestration ({documents.length})</span>
               </div>
               {activeInvestigation && (
-                <button
-                  onClick={loadDocuments}
-                  disabled={loadingDocs}
-                  className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1"
-                >
-                  <RefreshCw className={`w-3 h-3 ${loadingDocs ? 'animate-spin' : ''}`} />
-                  <span>Refresh List</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={runStepRefreshIntelligence}
+                    title="Refresh graph and Next-Best-Actions from existing investigation database records"
+                    className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium bg-indigo-950/60 border border-indigo-800/60 px-2 py-1 rounded transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Sync Graph & NBA</span>
+                  </button>
+                  <button
+                    onClick={loadDocuments}
+                    disabled={loadingDocs}
+                    className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${loadingDocs ? 'animate-spin' : ''}`} />
+                    <span>Refresh List</span>
+                  </button>
+                </div>
               )}
             </div>
 
             {!activeInvestigation ? (
               <div className="text-center py-6 border border-slate-800/80 rounded bg-slate-900/50 text-slate-500 text-xs">
-                No active investigation selected. Select an investigation above to view uploaded case evidence.
+                No active investigation selected. Select an investigation above to view uploaded case evidence and run intelligence workflows.
               </div>
             ) : loadingDocs ? (
               <div className="text-center py-6 text-slate-400 text-xs flex items-center justify-center gap-2">
@@ -468,43 +851,520 @@ export default function DocumentUploadPanel({ activeInvestigation }) {
                 No evidence documents uploaded yet for case <span className="font-semibold text-slate-300">{activeInvestigation.case_number}</span>.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="p-2.5 rounded bg-slate-800/80 border border-slate-700/70 hover:border-slate-600 flex items-center justify-between gap-3 text-xs transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="p-1.5 rounded bg-slate-700/60 border border-slate-600 text-blue-400 shrink-0">
-                        <FileText className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-medium text-slate-200 truncate" title={doc.original_filename}>
-                          {doc.original_filename}
-                        </div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
-                          <span className="uppercase font-mono px-1 py-0.2 rounded bg-blue-950/80 text-blue-300 border border-blue-800/60 font-semibold">
-                            {doc.document_type || 'OTHER'}
-                          </span>
-                          <span className="uppercase font-mono px-1 py-0.2 rounded bg-slate-900 text-slate-400 border border-slate-700">
-                            .{doc.file_type || 'file'}
-                          </span>
-                          {doc.file_size && <span>{formatFileSize(doc.file_size)}</span>}
-                          {doc.uploaded_at && <span>{formatDate(doc.uploaded_at)}</span>}
-                        </div>
-                      </div>
-                    </div>
+              <div className="space-y-3">
+                {documents.map((doc) => {
+                  const pState = docPipelineStates[doc.id] || {
+                    running: false,
+                    activeStep: null,
+                    stepStatus: {
+                      process: doc.processing_status === 'COMPLETED' ? 'completed' : (doc.processing_status === 'FAILED' ? 'failed' : 'pending'),
+                      entities: 'pending',
+                      relationships: 'pending',
+                      graph: 'pending',
+                      nba: 'pending',
+                    },
+                    stepCounts: {},
+                    error: null,
+                    summary: null,
+                  };
 
-                    <button
-                      onClick={() => handleDownload(doc)}
-                      title="Download physical document file"
-                      className="p-1.5 rounded bg-slate-700 hover:bg-blue-600 text-slate-300 hover:text-white transition-colors shrink-0 flex items-center gap-1 text-xs cursor-pointer"
+                  const isExpanded = expandedDocIds.has(doc.id);
+
+                  return (
+                    <div
+                      key={doc.id}
+                      className="bg-slate-800/80 border border-slate-700/80 rounded-lg overflow-hidden transition-all shadow-sm hover:border-slate-600"
                     >
-                      <Download className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Download</span>
-                    </button>
-                  </div>
-                ))}
+                      {/* Top Bar: Document info + High level pipeline badges + Actions */}
+                      <div className="p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="p-2 rounded bg-slate-700/70 border border-slate-600 text-blue-400 shrink-0">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-slate-100 truncate text-sm flex items-center gap-2">
+                              <span title={doc.original_filename}>{doc.original_filename}</span>
+                              <span className="uppercase text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800/60">
+                                {doc.document_type || 'OTHER'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-2 mt-1">
+                              <span className="uppercase font-mono text-slate-300">.{doc.file_type || 'file'}</span>
+                              <span>•</span>
+                              <span>{formatFileSize(doc.file_size)}</span>
+                              {doc.uploaded_at && (
+                                <>
+                                  <span>•</span>
+                                  <span>{formatDate(doc.uploaded_at)}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Pipeline Stage Pills */}
+                        <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-medium font-mono">
+                          {/* 1. Uploaded */}
+                          <span className="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span>Uploaded</span>
+                          </span>
+
+                          {/* 2. Text Extracted */}
+                          <span
+                            className={`px-2 py-0.5 rounded border flex items-center gap-1 ${
+                              pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED'
+                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60'
+                                : pState.stepStatus.process === 'running'
+                                ? 'bg-blue-950/90 text-blue-300 border-blue-700 animate-pulse'
+                                : pState.stepStatus.process === 'failed'
+                                ? 'bg-red-950/90 text-red-300 border-red-800'
+                                : 'bg-slate-900/80 text-slate-400 border-slate-700'
+                            }`}
+                          >
+                            {pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED' ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : pState.stepStatus.process === 'running' ? (
+                              <RefreshCw className="w-3 h-3 animate-spin text-blue-400" />
+                            ) : pState.stepStatus.process === 'failed' ? (
+                              <AlertCircle className="w-3 h-3 text-red-400" />
+                            ) : (
+                              <span className="w-2 h-2 rounded-full bg-slate-600"></span>
+                            )}
+                            <span>Text Extracted</span>
+                          </span>
+
+                          {/* 3. Entities Extracted */}
+                          <span
+                            className={`px-2 py-0.5 rounded border flex items-center gap-1 ${
+                              pState.stepStatus.entities === 'completed'
+                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60'
+                                : pState.stepStatus.entities === 'running'
+                                ? 'bg-blue-950/90 text-blue-300 border-blue-700 animate-pulse'
+                                : pState.stepStatus.entities === 'failed'
+                                ? 'bg-red-950/90 text-red-300 border-red-800'
+                                : 'bg-slate-900/80 text-slate-400 border-slate-700'
+                            }`}
+                          >
+                            {pState.stepStatus.entities === 'completed' ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : pState.stepStatus.entities === 'running' ? (
+                              <RefreshCw className="w-3 h-3 animate-spin text-blue-400" />
+                            ) : pState.stepStatus.entities === 'failed' ? (
+                              <AlertCircle className="w-3 h-3 text-red-400" />
+                            ) : (
+                              <span className="w-2 h-2 rounded-full bg-slate-600"></span>
+                            )}
+                            <span>Entities</span>
+                          </span>
+
+                          {/* 4. Relationships */}
+                          <span
+                            className={`px-2 py-0.5 rounded border flex items-center gap-1 ${
+                              pState.stepStatus.relationships === 'completed'
+                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60'
+                                : pState.stepStatus.relationships === 'running'
+                                ? 'bg-blue-950/90 text-blue-300 border-blue-700 animate-pulse'
+                                : pState.stepStatus.relationships === 'failed'
+                                ? 'bg-red-950/90 text-red-300 border-red-800'
+                                : 'bg-slate-900/80 text-slate-400 border-slate-700'
+                            }`}
+                          >
+                            {pState.stepStatus.relationships === 'completed' ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : pState.stepStatus.relationships === 'running' ? (
+                              <RefreshCw className="w-3 h-3 animate-spin text-blue-400" />
+                            ) : pState.stepStatus.relationships === 'failed' ? (
+                              <AlertCircle className="w-3 h-3 text-red-400" />
+                            ) : (
+                              <span className="w-2 h-2 rounded-full bg-slate-600"></span>
+                            )}
+                            <span>Relationships</span>
+                          </span>
+                        </div>
+
+                        {/* Right Actions */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Run Full Pipeline Primary Button */}
+                          <button
+                            onClick={() => runFullPipeline(doc)}
+                            disabled={pState.running}
+                            className="px-3 py-1.5 rounded bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-blue-950/50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+                          >
+                            {pState.running ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-200" />
+                                <span>Running Pipeline...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3.5 h-3.5 text-blue-200 fill-blue-200" />
+                                <span>Run Intelligence Pipeline</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => handleDownload(doc)}
+                            title="Download document file"
+                            className="p-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => toggleDocExpand(doc.id)}
+                            className="p-1.5 rounded bg-slate-700/80 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors flex items-center gap-1 text-xs cursor-pointer"
+                          >
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expandable Pipeline Workflow & Intelligence Drawer */}
+                      {isExpanded && (
+                        <div className="border-t border-slate-700/80 bg-slate-900/90 p-4 space-y-4 text-xs">
+                          {/* Document Intelligence Status Stepper */}
+                          <div>
+                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                              <Layers className="w-3.5 h-3.5 text-blue-400" />
+                              <span>DOCUMENT INTELLIGENCE PIPELINE STATUS</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                              {/* Step 1: Uploaded */}
+                              <div className="p-2.5 rounded bg-slate-800/80 border border-emerald-500/40 flex flex-col justify-between">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-mono text-slate-400">STAGE 1</span>
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                </div>
+                                <div className="font-semibold text-slate-200">✓ Uploaded</div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">Physical file stored</div>
+                              </div>
+
+                              {/* Step 2: Text Extraction */}
+                              <div
+                                className={`p-2.5 rounded border flex flex-col justify-between ${
+                                  pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED'
+                                    ? 'bg-slate-800/80 border-emerald-500/40'
+                                    : pState.stepStatus.process === 'running'
+                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
+                                    : pState.stepStatus.process === 'failed'
+                                    ? 'bg-red-950/40 border-red-500/70'
+                                    : 'bg-slate-900/60 border-slate-800'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-mono text-slate-400">STAGE 2</span>
+                                  {pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                  ) : pState.stepStatus.process === 'running' ? (
+                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+                                  ) : pState.stepStatus.process === 'failed' ? (
+                                    <AlertCircle className="w-4 h-4 text-red-400" />
+                                  ) : (
+                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
+                                  )}
+                                </div>
+                                <div className="font-semibold text-slate-200">
+                                  {pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED'
+                                    ? '✓ Text Extracted'
+                                    : '○ Text Extraction'}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                  {doc.processing_status === 'COMPLETED' ? 'Content parsed' : 'Extract document text'}
+                                </div>
+                              </div>
+
+                              {/* Step 3: Entity Extraction */}
+                              <div
+                                className={`p-2.5 rounded border flex flex-col justify-between ${
+                                  pState.stepStatus.entities === 'completed'
+                                    ? 'bg-slate-800/80 border-emerald-500/40'
+                                    : pState.stepStatus.entities === 'running'
+                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
+                                    : pState.stepStatus.entities === 'failed'
+                                    ? 'bg-red-950/40 border-red-500/70'
+                                    : 'bg-slate-900/60 border-slate-800'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-mono text-slate-400">STAGE 3</span>
+                                  {pState.stepStatus.entities === 'completed' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                  ) : pState.stepStatus.entities === 'running' ? (
+                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+                                  ) : pState.stepStatus.entities === 'failed' ? (
+                                    <AlertCircle className="w-4 h-4 text-red-400" />
+                                  ) : (
+                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
+                                  )}
+                                </div>
+                                <div className="font-semibold text-slate-200">
+                                  {pState.stepStatus.entities === 'completed'
+                                    ? '✓ Entities Extracted'
+                                    : '○ Entity Extraction'}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                  {pState.stepCounts.entitiesTotal
+                                    ? `${pState.stepCounts.entitiesTotal} entities saved`
+                                    : 'Extract named entities'}
+                                </div>
+                              </div>
+
+                              {/* Step 4: Relationship Discovery */}
+                              <div
+                                className={`p-2.5 rounded border flex flex-col justify-between ${
+                                  pState.stepStatus.relationships === 'completed'
+                                    ? 'bg-slate-800/80 border-emerald-500/40'
+                                    : pState.stepStatus.relationships === 'running'
+                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
+                                    : pState.stepStatus.relationships === 'failed'
+                                    ? 'bg-red-950/40 border-red-500/70'
+                                    : 'bg-slate-900/60 border-slate-800'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-mono text-slate-400">STAGE 4</span>
+                                  {pState.stepStatus.relationships === 'completed' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                  ) : pState.stepStatus.relationships === 'running' ? (
+                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+                                  ) : pState.stepStatus.relationships === 'failed' ? (
+                                    <AlertCircle className="w-4 h-4 text-red-400" />
+                                  ) : (
+                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
+                                  )}
+                                </div>
+                                <div className="font-semibold text-slate-200">
+                                  {pState.stepStatus.relationships === 'completed'
+                                    ? '✓ Relationships Saved'
+                                    : '○ Relationship Discovery'}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                  {pState.stepCounts.relationshipsTotal
+                                    ? `${pState.stepCounts.relationshipsTotal} relationships saved`
+                                    : 'Evidence links'}
+                                </div>
+                              </div>
+
+                              {/* Step 5: Graph Intelligence */}
+                              <div
+                                className={`p-2.5 rounded border flex flex-col justify-between ${
+                                  pState.stepStatus.graph === 'completed'
+                                    ? 'bg-slate-800/80 border-emerald-500/40'
+                                    : pState.stepStatus.graph === 'running'
+                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
+                                    : pState.stepStatus.graph === 'failed'
+                                    ? 'bg-red-950/40 border-red-500/70'
+                                    : 'bg-slate-900/60 border-slate-800'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-mono text-slate-400">STAGE 5</span>
+                                  {pState.stepStatus.graph === 'completed' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                  ) : pState.stepStatus.graph === 'running' ? (
+                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+                                  ) : pState.stepStatus.graph === 'failed' ? (
+                                    <AlertCircle className="w-4 h-4 text-red-400" />
+                                  ) : (
+                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
+                                  )}
+                                </div>
+                                <div className="font-semibold text-slate-200">
+                                  {pState.stepStatus.graph === 'completed'
+                                    ? '✓ Graph Updated'
+                                    : '○ Investigation Graph'}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">Cytoscape visualization</div>
+                              </div>
+
+                              {/* Step 6: Next-Best Actions */}
+                              <div
+                                className={`p-2.5 rounded border flex flex-col justify-between ${
+                                  pState.stepStatus.nba === 'completed'
+                                    ? 'bg-slate-800/80 border-emerald-500/40'
+                                    : pState.stepStatus.nba === 'running'
+                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
+                                    : pState.stepStatus.nba === 'failed'
+                                    ? 'bg-red-950/40 border-red-500/70'
+                                    : 'bg-slate-900/60 border-slate-800'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-mono text-slate-400">STAGE 6</span>
+                                  {pState.stepStatus.nba === 'completed' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                  ) : pState.stepStatus.nba === 'running' ? (
+                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+                                  ) : pState.stepStatus.nba === 'failed' ? (
+                                    <AlertCircle className="w-4 h-4 text-red-400" />
+                                  ) : (
+                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
+                                  )}
+                                </div>
+                                <div className="font-semibold text-slate-200">
+                                  {pState.stepStatus.nba === 'completed'
+                                    ? '✓ Recommendations Ready'
+                                    : '○ Next-Best Actions'}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">Ranked recommendations</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Error State Banner with Stage-Specific Retry Action */}
+                          {pState.error && (
+                            <div className="p-3 rounded bg-red-950/60 border border-red-800/80 text-red-200 flex flex-wrap items-center justify-between gap-3 shadow-md">
+                              <div className="flex items-start gap-2 max-w-xl">
+                                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="font-semibold text-red-300">
+                                    ⚠ Pipeline Error at Stage [{pState.error.step.toUpperCase()}]
+                                  </div>
+                                  <div className="text-xs text-red-200/90 mt-0.5">{pState.error.message}</div>
+                                  <div className="text-[11px] text-slate-400 mt-1">
+                                    Completed stages remain saved in PostgreSQL. You can retry from the failed step.
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => runFullPipeline(doc)}
+                                className="px-3 py-1.5 rounded bg-red-800 hover:bg-red-700 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Retry Intelligence Pipeline</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Controlled Individual Pipeline Stage Actions */}
+                          <div className="pt-2 border-t border-slate-800">
+                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                              Controlled Stage Actions
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Step 1: Process Text */}
+                              <button
+                                onClick={() => runStepProcess(doc)}
+                                disabled={pState.running}
+                                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-blue-400" />
+                                <span>1. Process Text</span>
+                              </button>
+
+                              {/* Step 2: Extract Entities */}
+                              <button
+                                onClick={() => runStepEntities(doc)}
+                                disabled={pState.running || doc.processing_status !== 'COMPLETED'}
+                                title={
+                                  doc.processing_status !== 'COMPLETED'
+                                    ? 'Process evidence document first'
+                                    : 'Extract Person, Phone, Location, Vehicle, and Event entities'
+                                }
+                                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
+                              >
+                                <Cpu className="w-3.5 h-3.5 text-amber-400" />
+                                <span>2. Extract Entities</span>
+                              </button>
+
+                              {/* Step 3: Discover Relationships */}
+                              <button
+                                onClick={() => runStepRelationships(doc)}
+                                disabled={pState.running || doc.processing_status !== 'COMPLETED'}
+                                title="Discover evidence links between extracted entities"
+                                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
+                              >
+                                <GitFork className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>3. Discover Relationships</span>
+                              </button>
+
+                              {/* Step 4 & 5: Refresh Investigation Intelligence */}
+                              <button
+                                onClick={runStepRefreshIntelligence}
+                                disabled={pState.running}
+                                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 flex items-center gap-1.5 cursor-pointer transition-colors"
+                              >
+                                <Network className="w-3.5 h-3.5 text-purple-400" />
+                                <span>4. Refresh Graph & NBA</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Pipeline Result Summary Card */}
+                          {pState.summary && (
+                            <div className="p-3.5 rounded bg-gradient-to-r from-blue-950/50 via-indigo-950/40 to-slate-900 border border-blue-500/40 space-y-2 shadow-lg">
+                              <div className="flex items-center justify-between border-b border-blue-800/40 pb-2">
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="w-4 h-4 text-blue-400" />
+                                  <span className="font-semibold text-slate-100 uppercase tracking-wider text-xs">
+                                    INTELLIGENCE GENERATED SUMMARY
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                                  PIPELINE SUCCESSFUL
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center pt-1">
+                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
+                                  <div className="text-[10px] text-slate-400 uppercase">Entities Saved</div>
+                                  <div className="text-base font-bold text-amber-400">
+                                    {pState.summary.entitiesSaved}
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 font-mono">
+                                    Total: {pState.summary.entitiesTotal}
+                                  </div>
+                                </div>
+
+                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
+                                  <div className="text-[10px] text-slate-400 uppercase">Relationships Saved</div>
+                                  <div className="text-base font-bold text-emerald-400">
+                                    {pState.summary.relationshipsSaved}
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 font-mono">
+                                    Total: {pState.summary.relationshipsTotal}
+                                  </div>
+                                </div>
+
+                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
+                                  <div className="text-[10px] text-slate-400 uppercase">Network Nodes</div>
+                                  <div className="text-base font-bold text-blue-400">
+                                    {pState.summary.graphNodes}
+                                  </div>
+                                </div>
+
+                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
+                                  <div className="text-[10px] text-slate-400 uppercase">Connections</div>
+                                  <div className="text-base font-bold text-indigo-400">
+                                    {pState.summary.graphEdges}
+                                  </div>
+                                </div>
+
+                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
+                                  <div className="text-[10px] text-slate-400 uppercase">Components</div>
+                                  <div className="text-base font-bold text-purple-400">
+                                    {pState.summary.graphComponents}
+                                  </div>
+                                </div>
+
+                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
+                                  <div className="text-[10px] text-slate-400 uppercase">Recommendations</div>
+                                  <div className="text-base font-bold text-rose-400">
+                                    {pState.summary.recommendationsTotal}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

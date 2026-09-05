@@ -1,0 +1,4 @@
+transaction_id,date_time,sender_name,sender_account,receiver_name,receiver_account,amount_inr,mode,location_or_bank
+TXN001,2026-08-11 16:20,Vikram Sharma,ACCT-XX1001,Rajesh Kumar,ACCT-XX2001,75000,BANK_TRANSFER,Noida
+TXN002,2026-08-12 21:10,Rajesh Kumar,ACCT-XX2001,Neha Verma,ACCT-XX3001,68000,UPI_TRANSFER,Noida
+TXN003,2026-08-13 10:05,Neha Verma,ACCT-XX3001,Unknown Recipient,ACCT-XX9009,65000,BANK_TRANSFER,Delhi

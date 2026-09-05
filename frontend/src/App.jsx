@@ -8,6 +8,7 @@ import {
   buildGraph,
   getInvestigationGraph,
   fetchNextBestActions,
+  getInvestigationNextBestActions,
   getInvestigations,
   createInvestigation,
   deleteInvestigation,
@@ -63,19 +64,28 @@ export default function App() {
     }
   }, [activeInvestigation?.id]);
 
-  // Load Recommendations Data
-  const loadRecommendations = useCallback(async () => {
+  // Load Recommendations Data (Demo Mode vs Live Investigation Mode)
+  const loadRecommendations = useCallback(async (invId = null) => {
     setRecommendationsLoading(true);
     setRecommendationsError(null);
 
+    const targetInvId = invId !== null ? invId : activeInvestigation?.id;
+
     try {
-      const payload = {
-        records: RAJESH_KUMAR_DATASET.records,
-        identity_results: RAJESH_KUMAR_DATASET.identity_results || [],
-        max_recommendations: 10,
-      };
-      const data = await fetchNextBestActions(payload);
-      setRecommendationsData(data);
+      if (targetInvId) {
+        // Live Investigation Mode: fetch real NBA from database
+        const data = await getInvestigationNextBestActions(targetInvId, 10);
+        setRecommendationsData(data);
+      } else {
+        // Demo Mode: fetch synthetic NBA
+        const payload = {
+          records: RAJESH_KUMAR_DATASET.records,
+          identity_results: RAJESH_KUMAR_DATASET.identity_results || [],
+          max_recommendations: 10,
+        };
+        const data = await fetchNextBestActions(payload);
+        setRecommendationsData(data);
+      }
       setBackendStatus('connected');
     } catch (err) {
       console.error('Error fetching next-best-actions:', err);
@@ -83,7 +93,7 @@ export default function App() {
     } finally {
       setRecommendationsLoading(false);
     }
-  }, []);
+  }, [activeInvestigation?.id]);
 
   // Load Investigations list from database
   const loadInvestigationsList = useCallback(async () => {
@@ -121,16 +131,16 @@ export default function App() {
     setSelectedEntityId((prev) => (prev === targetId ? null : targetId));
   }, []);
 
-  // Fetch graph whenever activeInvestigation changes
+  // Fetch graph AND recommendations whenever activeInvestigation changes
   useEffect(() => {
     loadGraph();
-  }, [activeInvestigation, loadGraph]);
-
-  // Initial load for recommendations & investigations list
-  useEffect(() => {
     loadRecommendations();
+  }, [activeInvestigation, loadGraph, loadRecommendations]);
+
+  // Initial load of investigations list only (graph + recs handled by effect above)
+  useEffect(() => {
     loadInvestigationsList();
-  }, [loadRecommendations, loadInvestigationsList]);
+  }, [loadInvestigationsList]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
@@ -164,8 +174,10 @@ export default function App() {
             loading={recommendationsLoading}
             error={recommendationsError}
             onRetry={loadRecommendations}
+            onRefresh={loadRecommendations}
             selectedEntityId={selectedEntityId}
             onRecommendationClick={handleRecommendationClick}
+            activeInvestigation={activeInvestigation}
           />
         </div>
 
@@ -173,6 +185,7 @@ export default function App() {
         <DocumentUploadPanel
           activeInvestigation={activeInvestigation}
           onGraphRefresh={loadGraph}
+          onRecommendationsRefresh={loadRecommendations}
         />
       </main>
     </div>

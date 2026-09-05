@@ -234,6 +234,41 @@ export async function downloadDocument(investigationId, documentId, originalFile
   window.URL.revokeObjectURL(downloadUrl);
 }
 
+// --- Intelligence Pipeline Orchestration API Service Methods ---
+
+/**
+ * Process a document: extract text content from PDF/DOCX/TXT/CSV file.
+ * @param {string} investigationId - Investigation UUID
+ * @param {string} documentId - Document UUID
+ */
+export async function processDocument(investigationId, documentId) {
+  const url = `${API_BASE_URL}/investigations/${investigationId}/documents/${documentId}/process`;
+  const response = await fetch(url, { method: 'POST' });
+  return await handleResponse(response);
+}
+
+/**
+ * Extract entities from a processed document and save to PostgreSQL idempotently.
+ * @param {string} investigationId - Investigation UUID
+ * @param {string} documentId - Document UUID
+ */
+export async function extractDocumentEntities(investigationId, documentId) {
+  const url = `${API_BASE_URL}/investigations/${investigationId}/documents/${documentId}/extract-entities`;
+  const response = await fetch(url, { method: 'POST' });
+  return await handleResponse(response);
+}
+
+/**
+ * Discover and extract evidence-based relationships from document entities and save to PostgreSQL.
+ * @param {string} investigationId - Investigation UUID
+ * @param {string} documentId - Document UUID
+ */
+export async function extractDocumentRelationships(investigationId, documentId) {
+  const url = `${API_BASE_URL}/investigations/${investigationId}/documents/${documentId}/extract-relationships`;
+  const response = await fetch(url, { method: 'POST' });
+  return await handleResponse(response);
+}
+
 /**
  * Fetch real investigation graph (nodes, edges, metrics) from database.
  * @param {string} investigationId - Investigation UUID
@@ -246,3 +281,16 @@ export async function getInvestigationGraph(investigationId) {
   return await handleResponse(response);
 }
 
+/**
+ * Fetch real Next-Best-Action recommendations for a live investigation from the database.
+ * Recommendations are generated from actual entities, relationships, and network metrics.
+ * @param {string} investigationId - Investigation UUID
+ * @param {number} [maxRecommendations=10] - Maximum number of recommendations to return
+ * @returns {Promise<Object>} NBA response containing investigation_id, network_summary,
+ *   recommendation_summary, and recommendations array
+ */
+export async function getInvestigationNextBestActions(investigationId, maxRecommendations = 10) {
+  const url = `${API_BASE_URL}/investigations/${investigationId}/next-best-actions?max_recommendations=${maxRecommendations}`;
+  const response = await fetch(url, { method: 'GET' });
+  return await handleResponse(response);
+}
