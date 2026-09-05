@@ -5,12 +5,34 @@ Provides REST API endpoints for:
 - Identity resolution with confidence scores and status flags (CONFIRMED, POSSIBLE, AMBIGUOUS, UNKNOWN)
 - Network graph generation with typed nodes and evidence-preserving edges
 - Shortest path / evidence chain tracing between suspects
-- Synthetic dataset inspection and end-to-end analysis
+- Explainable Next-Best-Action investigative recommendations
+- Database CRUD management for Investigations, Documents, Entities, and Relationships
 """
+from contextlib import asynccontextmanager
 from typing import Dict, List, Any, Optional
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+import uuid
 
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from api import crud
+from api.database import get_db, init_db
+from api.services import document_storage
+from api.schemas import (
+    InvestigationCreate,
+    InvestigationRead,
+    DocumentCreate,
+    DocumentRead,
+    EntityCreate,
+    EntityRead,
+    RelationshipCreate,
+    RelationshipRead,
+)
 from data import load_synthetic_records
 from pipeline.entity_extraction import extract_entities_from_text
 from pipeline.identity_resolution import (
@@ -23,7 +45,17 @@ from pipeline.graph_builder import (
     find_shortest_connection,
 )
 from pipeline.next_best_action import generate_next_best_actions
-from fastapi.middleware.cors import CORSMiddleware
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Safely initialize database tables on startup."""
+    try:
+        init_db()
+    except Exception as exc:
+        print(f"Warning: Database initialization skipped/failed: {exc}")
+    yield
+
 
 app = FastAPI(
     title="Criminal Network Analysis API",
@@ -32,7 +64,9 @@ app = FastAPI(
         "Extracts entities, resolves identities with status flags, and builds multi-entity graph networks."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -43,6 +77,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # --- Request & Response Models ---
 
@@ -123,8 +158,7 @@ class NextBestActionRequest(BaseModel):
     )
 
 
-
-# --- Endpoints ---
+# --- General Endpoints ---
 
 @app.get("/", tags=["General"])
 def root():
@@ -148,6 +182,8 @@ def get_synthetic_dataset():
         "records": records,
     }
 
+
+# --- Pipeline Endpoints ---
 
 @app.post("/pipeline/extract-entities", tags=["Pipeline"])
 def extract_entities_endpoint(request: EntityExtractRequest):
@@ -224,20 +260,15 @@ def analyze_network_full():
     """
     records = load_synthetic_records()
 
-    # Collect all entities from records
     all_persons = []
     for rec in records:
         for ent in rec.get("entities", []):
             if ent.get("entity_type") == "Person":
                 all_persons.append(ent)
 
-    # Resolve identities across dataset
     identity_matches = resolve_dataset_identities(all_persons, min_threshold=0.70)
-
-    # Build network graph
     network = build_criminal_network(records)
 
-    # Top central persons (by degree and betweenness)
     ranked_nodes = sorted(
         network["nodes"],
         key=lambda n: (n.get("betweenness_centrality", 0), n.get("degree_centrality", 0)),
@@ -255,11 +286,7 @@ def analyze_network_full():
 
 @app.post("/pipeline/next-best-actions", tags=["Pipeline"])
 def next_best_actions_endpoint(request: NextBestActionRequest):
-    """Generate explainable Next-Best-Action investigative recommendations.
-
-    Leverages network topology, edge confidence scores, and optional identity
-    resolution candidates to prioritize evidence verification and intelligence follow-ups.
-    """
+    """Generate explainable Next-Best-Action investigative recommendations."""
     records = request.records if request.records is not None else load_synthetic_records()
     if not records:
         raise HTTPException(status_code=400, detail="No records available to generate recommendations.")
@@ -281,3 +308,278 @@ def next_best_actions_endpoint(request: NextBestActionRequest):
         "recommendations": nba_result["recommendations"],
     }
 
+
+# --- Investigation & Database Endpoints ---
+
+@app.post(
+    "/investigations",
+    response_model=InvestigationRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Investigations"],
+)
+def create_investigation_endpoint(
+    investigation: InvestigationCreate,
+    db: Session = Depends(get_db),
+):
+    """Create a new criminal investigation record."""
+    existing = crud.get_investigation_by_case_number(db, investigation.case_number)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Investigation with case_number '{investigation.case_number}' already exists.",
+        )
+    return crud.create_investigation(db, investigation)
+
+
+@app.get(
+    "/investigations",
+    response_model=List[InvestigationRead],
+    tags=["Investigations"],
+)
+def list_investigations_endpoint(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """List stored criminal investigations."""
+    return crud.get_investigations(db, skip=skip, limit=limit)
+
+
+@app.get(
+    "/investigations/{investigation_id}",
+    response_model=InvestigationRead,
+    tags=["Investigations"],
+)
+def get_investigation_endpoint(
+    investigation_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """Retrieve details of a specific investigation by UUID."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    return inv
+
+
+@app.delete(
+    "/investigations/{investigation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["Investigations"],
+)
+def delete_investigation_endpoint(
+    investigation_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """Delete an investigation record and all associated documents, entities, and relationships."""
+    deleted = crud.delete_investigation(db, investigation_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+
+
+@app.post(
+    "/investigations/{investigation_id}/documents",
+    response_model=DocumentRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Investigations"],
+)
+def create_document_endpoint(
+    investigation_id: uuid.UUID,
+    document: DocumentCreate,
+    db: Session = Depends(get_db),
+):
+    """Attach a document record to an investigation."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    return crud.create_document(db, investigation_id, document)
+
+
+@app.get(
+    "/investigations/{investigation_id}/documents",
+    response_model=List[DocumentRead],
+    tags=["Investigations"],
+)
+def list_documents_endpoint(
+    investigation_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """List documents for a specific investigation."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    return crud.get_documents(db, investigation_id)
+
+
+@app.post(
+    "/investigations/{investigation_id}/documents/upload",
+    response_model=DocumentRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Investigations"],
+)
+def upload_document_endpoint(
+    investigation_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Upload an intelligence document file (.pdf, .docx, .txt, .csv) to an investigation."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+
+    # Save file physically to disk
+    file_info = document_storage.save_document_file(file, investigation_id)
+
+    # Prepare document schema payload
+    doc_create = DocumentCreate(
+        document_type=str(file_info["document_type"]),
+        original_filename=str(file_info["original_filename"]),
+        stored_filename=str(file_info["stored_filename"]),
+        file_type=str(file_info["file_type"]),
+        file_size=int(file_info["file_size"]),
+        content_type=str(file_info["content_type"]),
+        storage_path=str(file_info["storage_path"]),
+        processing_status="PENDING",
+    )
+
+    # Transaction safety: Delete stored physical file if database transaction fails
+    try:
+        db_doc = crud.create_document(db, investigation_id, doc_create)
+        return db_doc
+    except Exception as exc:
+        document_storage.delete_stored_file(str(file_info["storage_path"]))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error during document registration: {exc}",
+        )
+
+
+@app.get(
+    "/investigations/{investigation_id}/documents/{document_id}/download",
+    tags=["Investigations"],
+)
+def download_document_endpoint(
+    investigation_id: uuid.UUID,
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """Download a stored document file for an investigation."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+
+    doc = crud.get_document(db, investigation_id, document_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID '{document_id}' not found in investigation '{investigation_id}'.",
+        )
+
+    if not doc.storage_path or not Path(doc.storage_path).exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Physical file not found on server storage.",
+        )
+
+    return FileResponse(
+        path=doc.storage_path,
+        filename=doc.original_filename,
+        media_type=doc.content_type or "application/octet-stream",
+    )
+
+
+@app.post(
+    "/investigations/{investigation_id}/entities",
+    response_model=EntityRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Investigations"],
+)
+def create_entity_endpoint(
+    investigation_id: uuid.UUID,
+    entity: EntityCreate,
+    db: Session = Depends(get_db),
+):
+    """Add an entity to an investigation."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    return crud.create_entity(db, investigation_id, entity)
+
+
+@app.get(
+    "/investigations/{investigation_id}/entities",
+    response_model=List[EntityRead],
+    tags=["Investigations"],
+)
+def list_entities_endpoint(
+    investigation_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """List entities belonging to an investigation."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    return crud.get_entities(db, investigation_id)
+
+
+@app.post(
+    "/investigations/{investigation_id}/relationships",
+    response_model=RelationshipRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Investigations"],
+)
+def create_relationship_endpoint(
+    investigation_id: uuid.UUID,
+    relationship: RelationshipCreate,
+    db: Session = Depends(get_db),
+):
+    """Add a relationship edge between two entities within an investigation."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    return crud.create_relationship(db, investigation_id, relationship)
+
+
+@app.get(
+    "/investigations/{investigation_id}/relationships",
+    response_model=List[RelationshipRead],
+    tags=["Investigations"],
+)
+def list_relationships_endpoint(
+    investigation_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """List relationship edges for an investigation."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    return crud.get_relationships(db, investigation_id)
