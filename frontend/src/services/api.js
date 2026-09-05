@@ -5,6 +5,30 @@
 export const API_BASE_URL = 'http://127.0.0.1:8000';
 
 /**
+ * Helper to handle fetch responses and extract error details cleanly.
+ */
+async function handleResponse(response) {
+  if (!response.ok) {
+    let errorMsg = `Server error (${response.status})`;
+    try {
+      const errJson = await response.json();
+      errorMsg = errJson.detail || errorMsg;
+    } catch {
+      const errText = await response.text();
+      if (errText) errorMsg = errText;
+    }
+    throw new Error(errorMsg);
+  }
+
+  // Handle 204 No Content
+  if (response.status === 204) {
+    return true;
+  }
+
+  return await response.json();
+}
+
+/**
  * Build graph network from crime / intelligence records.
  * 
  * @param {Array<Object>} records - List of intelligence records with entities and relationships
@@ -22,20 +46,7 @@ export async function buildGraph(records) {
       body: JSON.stringify({ records: records || [] }),
     });
 
-    if (!response.ok) {
-      let errorMsg = `Server error (${response.status})`;
-      try {
-        const errJson = await response.json();
-        errorMsg = errJson.detail || errorMsg;
-      } catch {
-        const errText = await response.text();
-        if (errText) errorMsg = errText;
-      }
-      throw new Error(errorMsg);
-    }
-
-    const data = await response.json();
-    return data;
+    return await handleResponse(response);
   } catch (err) {
     if (url.startsWith('http')) {
       try {
@@ -73,20 +84,7 @@ export async function fetchNextBestActions(payload) {
       body: JSON.stringify(payload || {}),
     });
 
-    if (!response.ok) {
-      let errorMsg = `Server error (${response.status})`;
-      try {
-        const errJson = await response.json();
-        errorMsg = errJson.detail || errorMsg;
-      } catch {
-        const errText = await response.text();
-        if (errText) errorMsg = errText;
-      }
-      throw new Error(errorMsg);
-    }
-
-    const data = await response.json();
-    return data;
+    return await handleResponse(response);
   } catch (err) {
     if (url.startsWith('http')) {
       try {
@@ -123,3 +121,128 @@ export async function checkBackendHealth() {
     }
   }
 }
+
+// --- Investigation CRUD API Service Methods ---
+
+/**
+ * Create a new criminal investigation.
+ * @param {Object} payload - { case_number, title, description, status }
+ */
+export async function createInvestigation(payload) {
+  const response = await fetch(`${API_BASE_URL}/investigations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return await handleResponse(response);
+}
+
+/**
+ * Fetch list of stored criminal investigations.
+ */
+export async function getInvestigations() {
+  const response = await fetch(`${API_BASE_URL}/investigations`, {
+    method: 'GET',
+  });
+  return await handleResponse(response);
+}
+
+/**
+ * Fetch a single investigation by UUID.
+ * @param {string} id - Investigation UUID
+ */
+export async function getInvestigation(id) {
+  const response = await fetch(`${API_BASE_URL}/investigations/${id}`, {
+    method: 'GET',
+  });
+  return await handleResponse(response);
+}
+
+/**
+ * Delete an investigation by UUID.
+ * @param {string} id - Investigation UUID
+ */
+export async function deleteInvestigation(id) {
+  const response = await fetch(`${API_BASE_URL}/investigations/${id}`, {
+    method: 'DELETE',
+  });
+  return await handleResponse(response);
+}
+
+// --- Document Upload & Management API Service Methods ---
+
+/**
+ * Upload a document file to an investigation.
+ * @param {string} investigationId - Investigation UUID
+ * @param {File} file - File object from input
+ * @param {string} [documentType] - Optional category/document_type (FIR, CDR, FINANCIAL, etc.)
+ */
+export async function uploadDocument(investigationId, file, documentType) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (documentType) {
+    formData.append('document_type', documentType);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/investigations/${investigationId}/documents/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  return await handleResponse(response);
+}
+
+/**
+ * Fetch uploaded documents for an investigation.
+ * @param {string} investigationId - Investigation UUID
+ */
+export async function getDocuments(investigationId) {
+  const response = await fetch(`${API_BASE_URL}/investigations/${investigationId}/documents`, {
+    method: 'GET',
+  });
+  return await handleResponse(response);
+}
+
+/**
+ * Download a document file by triggering a browser download stream.
+ * @param {string} investigationId - Investigation UUID
+ * @param {string} documentId - Document UUID
+ * @param {string} originalFilename - Preferred download filename
+ */
+export async function downloadDocument(investigationId, documentId, originalFilename) {
+  const url = `${API_BASE_URL}/investigations/${investigationId}/documents/${documentId}/download`;
+  const response = await fetch(url, { method: 'GET' });
+
+  if (!response.ok) {
+    let errorMsg = `Failed to download file (${response.status})`;
+    try {
+      const errJson = await response.json();
+      errorMsg = errJson.detail || errorMsg;
+    } catch {
+      // ignore
+    }
+    throw new Error(errorMsg);
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = originalFilename || 'downloaded_document';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}
+
+/**
+ * Fetch real investigation graph (nodes, edges, metrics) from database.
+ * @param {string} investigationId - Investigation UUID
+ * @returns {Promise<Object>} Investigation graph response containing nodes, edges, metrics
+ */
+export async function getInvestigationGraph(investigationId) {
+  const response = await fetch(`${API_BASE_URL}/investigations/${investigationId}/graph`, {
+    method: 'GET',
+  });
+  return await handleResponse(response);
+}
+

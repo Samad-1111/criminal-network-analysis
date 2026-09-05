@@ -92,6 +92,8 @@ class Document(Base):
     processing_status: Mapped[str] = mapped_column(
         String(50), default="PENDING", index=True, nullable=False
     )
+    extracted_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    processing_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )

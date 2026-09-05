@@ -41,6 +41,8 @@ class DocumentBase(BaseModel):
     content_type: Optional[str] = Field(None, description="MIME content type")
     storage_path: Optional[str] = Field(None, description="Storage location path")
     processing_status: str = Field("PENDING", description="Document processing status (PENDING, PROCESSING, COMPLETED, FAILED)")
+    extracted_text: Optional[str] = Field(None, description="Extracted plain-text content from the document")
+    processing_error: Optional[str] = Field(None, description="Error message if processing failed")
 
 
 class DocumentCreate(DocumentBase):
@@ -76,6 +78,13 @@ class EntityRead(EntityBase):
     created_at: datetime
 
 
+class EntityExtractionResponse(BaseModel):
+    entities_saved: int
+    entities_total: int
+    identity_matches: list[dict] = Field(default_factory=list)
+    entities: list[EntityRead]
+
+
 # --- Relationship Schemas ---
 
 class RelationshipBase(BaseModel):
@@ -98,4 +107,37 @@ class RelationshipRead(RelationshipBase):
     target_entity_id: uuid.UUID
     source_document_id: Optional[uuid.UUID] = None
     created_at: datetime
+
+
+class RelationshipExtractionResponse(BaseModel):
+    relationships_saved: int
+    relationships_total: int
+    relationships: list[RelationshipRead]
+
+
+class GraphNode(BaseModel):
+    id: str
+    label: str
+    entity_type: str
+    confidence: float = 1.0
+    normalized_value: Optional[str] = None
+    degree_centrality: float = 0.0
+    betweenness_centrality: float = 0.0
+
+
+class GraphEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    relationship_type: str
+    confidence: float = 1.0
+    source_document_id: Optional[str] = None
+
+
+class InvestigationGraphResponse(BaseModel):
+    investigation_id: str
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+    metrics: dict = Field(default_factory=dict)
+
 

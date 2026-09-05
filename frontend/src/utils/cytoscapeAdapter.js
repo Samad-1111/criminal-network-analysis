@@ -123,13 +123,14 @@ export function convertToCytoscapeElements(graphData) {
       'ASSOCIATED_WITH';
 
     /**
-     * Create a unique edge ID.
+     * Use backend relationship UUID if available, otherwise construct unique edge ID.
      */
     const edgeId =
+      edge.id ||
       `edge:${edge.source}` +
       `--${edge.target}` +
       `:${relationshipType}` +
-      `:${edge.source_record_id || index}`;
+      `:${edge.source_record_id || edge.source_document_id || index}`;
 
     const confidence =
       typeof edge.confidence === 'number'
@@ -149,7 +150,9 @@ export function convertToCytoscapeElements(graphData) {
         relationship_type: relationshipType,
 
         source_record_id:
-          edge.source_record_id || 'UNKNOWN',
+          edge.source_record_id || edge.source_document_id || 'UNKNOWN',
+
+        source_document_id: edge.source_document_id || null,
 
         timestamp:
           edge.timestamp || '',

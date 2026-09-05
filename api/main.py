@@ -14,7 +14,7 @@ import uuid
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -23,6 +23,10 @@ from sqlalchemy.orm import Session
 from api import crud
 from api.database import get_db, init_db
 from api.services import document_storage
+from api.services.document_processor import extract_text, DocumentProcessingError
+from api.services.entity_extractor import extract_entities_from_document_text
+from api.services.relationship_extractor import extract_relationships_from_document_text
+from api.services.investigation_graph import get_investigation_graph
 from api.schemas import (
     InvestigationCreate,
     InvestigationRead,
@@ -30,8 +34,11 @@ from api.schemas import (
     DocumentRead,
     EntityCreate,
     EntityRead,
+    EntityExtractionResponse,
     RelationshipCreate,
     RelationshipRead,
+    RelationshipExtractionResponse,
+    InvestigationGraphResponse,
 )
 from data import load_synthetic_records
 from pipeline.entity_extraction import extract_entities_from_text
@@ -431,6 +438,7 @@ def list_documents_endpoint(
 def upload_document_endpoint(
     investigation_id: uuid.UUID,
     file: UploadFile = File(...),
+    document_type: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     """Upload an intelligence document file (.pdf, .docx, .txt, .csv) to an investigation."""
@@ -444,9 +452,16 @@ def upload_document_endpoint(
     # Save file physically to disk
     file_info = document_storage.save_document_file(file, investigation_id)
 
+    # Determine document type (use explicitly passed document_type if provided, else fall back to file_info)
+    effective_doc_type = (
+        document_type.strip().upper()
+        if (document_type and document_type.strip())
+        else str(file_info["document_type"])
+    )
+
     # Prepare document schema payload
     doc_create = DocumentCreate(
-        document_type=str(file_info["document_type"]),
+        document_type=effective_doc_type,
         original_filename=str(file_info["original_filename"]),
         stored_filename=str(file_info["stored_filename"]),
         file_type=str(file_info["file_type"]),
@@ -502,6 +517,179 @@ def download_document_endpoint(
         path=doc.storage_path,
         filename=doc.original_filename,
         media_type=doc.content_type or "application/octet-stream",
+    )
+
+
+@app.get(
+    "/investigations/{investigation_id}/documents/{document_id}",
+    response_model=DocumentRead,
+    tags=["Investigations"],
+)
+def get_document_endpoint(
+    investigation_id: uuid.UUID,
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """Retrieve a single document record by ID within an investigation."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    doc = crud.get_document(db, investigation_id, document_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID '{document_id}' not found in investigation '{investigation_id}'.",
+        )
+    return doc
+
+
+@app.post(
+    "/investigations/{investigation_id}/documents/{document_id}/process",
+    response_model=DocumentRead,
+    tags=["Investigations"],
+)
+def process_document_endpoint(
+    investigation_id: uuid.UUID,
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """Extract and store text content from a previously uploaded document.
+
+    Supported file types: PDF, DOCX, TXT, CSV.
+
+    Workflow:
+    - Verifies investigation and document exist.
+    - Idempotent: returns immediately if status is already COMPLETED.
+    - Returns 409 Conflict if the document is currently PROCESSING.
+    - Sets status to PROCESSING, extracts text, then sets COMPLETED or FAILED.
+    """
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+
+    doc = crud.get_document(db, investigation_id, document_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID '{document_id}' not found in investigation '{investigation_id}'.",
+        )
+
+    # Idempotency: already done
+    if doc.processing_status == "COMPLETED":
+        return doc
+
+    # Guard against concurrent processing (should not happen in sync server, but be safe)
+    if doc.processing_status == "PROCESSING":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already being processed.",
+        )
+
+    if not doc.storage_path or not Path(doc.storage_path).exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Physical file not found on server storage. Cannot process.",
+        )
+
+    # Mark as processing
+    crud.update_document_processing_result(
+        db, doc, status="PROCESSING", extracted_text=None, error=None
+    )
+
+    # Extract content
+    try:
+        extracted = extract_text(doc.storage_path, doc.file_type)
+        return crud.update_document_processing_result(
+            db, doc, status="COMPLETED", extracted_text=extracted, error=None
+        )
+    except DocumentProcessingError as exc:
+        return crud.update_document_processing_result(
+            db, doc, status="FAILED", extracted_text=None, error=str(exc)
+        )
+    except Exception as exc:  # noqa: BLE001
+        return crud.update_document_processing_result(
+            db, doc, status="FAILED", extracted_text=None, error=f"Unexpected error: {exc}"
+        )
+
+
+@app.post(
+    "/investigations/{investigation_id}/documents/{document_id}/extract-entities",
+    response_model=EntityExtractionResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Documents"],
+)
+def extract_entities_from_document_endpoint(
+    investigation_id: uuid.UUID,
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """Extract entities from a processed document and save them to PostgreSQL.
+
+    Runs identity resolution on extracted Person entities and returns match candidates metadata.
+    """
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+
+    doc = crud.get_document(db, investigation_id, document_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID '{document_id}' not found in investigation '{investigation_id}'.",
+        )
+
+    if doc.processing_status != "COMPLETED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Document has not been successfully processed yet. Current status: '{doc.processing_status}'.",
+        )
+
+    if not doc.extracted_text or not doc.extracted_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document contains no extracted text to perform entity extraction.",
+        )
+
+    # 1. Extract entities using entity_extractor service
+    extracted_dicts = extract_entities_from_document_text(doc.extracted_text)
+
+    saved_entities = []
+    newly_created_count = 0
+
+    # 2. Persist entities with duplicate protection using get_or_create_entity
+    for item in extracted_dicts:
+        db_entity, created = crud.get_or_create_entity(
+            db=db,
+            investigation_id=investigation_id,
+            entity_type=item["entity_type"],
+            name=item["name"],
+            normalized_value=item["normalized_value"],
+            confidence=item["confidence"],
+        )
+        saved_entities.append(db_entity)
+        if created:
+            newly_created_count += 1
+
+    # 3. Identity Resolution metadata evaluation on extracted Person entities
+    person_extracted = [item for item in extracted_dicts if item["entity_type"] == "Person"]
+    identity_matches = []
+    if len(person_extracted) > 1:
+        identity_matches = resolve_dataset_identities(person_extracted)
+
+    return EntityExtractionResponse(
+        entities_saved=newly_created_count,
+        entities_total=len(saved_entities),
+        identity_matches=identity_matches,
+        entities=saved_entities,
     )
 
 
@@ -583,3 +771,115 @@ def list_relationships_endpoint(
             detail=f"Investigation with ID '{investigation_id}' not found.",
         )
     return crud.get_relationships(db, investigation_id)
+
+
+@app.post(
+    "/investigations/{investigation_id}/documents/{document_id}/extract-relationships",
+    response_model=RelationshipExtractionResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Documents"],
+)
+def extract_relationships_from_document_endpoint(
+    investigation_id: uuid.UUID,
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """Discover and persist evidence-based relationships between entities in a processed document."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+
+    doc = crud.get_document(db, investigation_id, document_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID '{document_id}' not found in investigation '{investigation_id}'.",
+        )
+
+    if doc.processing_status != "COMPLETED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Document has not been successfully processed yet. Current status: '{doc.processing_status}'.",
+        )
+
+    if not doc.extracted_text or not doc.extracted_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document contains no extracted text to perform relationship extraction.",
+        )
+
+    # Fetch saved entities for investigation
+    saved_entities = crud.get_entities(db, investigation_id)
+    if len(saved_entities) < 2:
+        all_rels = crud.get_relationships(db, investigation_id)
+        return RelationshipExtractionResponse(
+            relationships_saved=0,
+            relationships_total=len(all_rels),
+            relationships=[],
+        )
+
+    # Format entity dicts for relationship extractor
+    entity_dicts = [
+        {
+            "id": e.id,
+            "name": e.name,
+            "entity_type": e.entity_type,
+            "normalized_value": e.normalized_value or e.name,
+        }
+        for e in saved_entities
+    ]
+
+    # Extract relationship candidates from text
+    candidates = extract_relationships_from_document_text(
+        text=doc.extracted_text,
+        entities=entity_dicts,
+        source_document_id=doc.id,
+    )
+
+    saved_relationships = []
+    newly_created_count = 0
+
+    for cand in candidates:
+        db_rel, created = crud.get_or_create_relationship(
+            db=db,
+            investigation_id=investigation_id,
+            source_entity_id=uuid.UUID(str(cand["source_entity_id"])),
+            target_entity_id=uuid.UUID(str(cand["target_entity_id"])),
+            relationship_type=cand["relationship_type"],
+            confidence=cand["confidence"],
+            source_document_id=doc.id,
+        )
+        saved_relationships.append(db_rel)
+        if created:
+            newly_created_count += 1
+
+    all_inv_relationships = crud.get_relationships(db, investigation_id)
+
+    return RelationshipExtractionResponse(
+        relationships_saved=newly_created_count,
+        relationships_total=len(all_inv_relationships),
+        relationships=saved_relationships,
+    )
+
+
+@app.get(
+    "/investigations/{investigation_id}/graph",
+    response_model=InvestigationGraphResponse,
+    tags=["Investigations"],
+)
+def get_investigation_graph_endpoint(
+    investigation_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """Retrieve real investigation graph nodes, edges, and network intelligence metrics."""
+    inv = crud.get_investigation(db, investigation_id)
+    if not inv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Investigation with ID '{investigation_id}' not found.",
+        )
+    return get_investigation_graph(db, investigation_id)
+

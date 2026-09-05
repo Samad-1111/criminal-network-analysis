@@ -107,7 +107,34 @@ def get_document(
     return db.scalars(stmt).first()
 
 
-# --- Entity CRUD ---
+def update_document_processing_result(
+    db: Session,
+    document: Document,
+    *,
+    status: str,
+    extracted_text: Optional[str] = None,
+    error: Optional[str] = None,
+) -> Document:
+    """Update a document's processing status, extracted text, and error message.
+
+    Args:
+        db: Active database session.
+        document: SQLAlchemy Document ORM instance to update.
+        status: New processing_status value (PROCESSING, COMPLETED, FAILED).
+        extracted_text: Full extracted plain text on success; None otherwise.
+        error: Error description string on failure; None otherwise.
+
+    Returns:
+        Refreshed Document ORM instance with updated fields.
+    """
+    document.processing_status = status
+    document.extracted_text = extracted_text
+    document.processing_error = error
+    db.commit()
+    db.refresh(document)
+    return document
+
+
 
 def create_entity(
     db: Session, investigation_id: uuid.UUID, entity: EntityCreate
@@ -133,6 +160,43 @@ def get_entities(
     """Retrieve all entities associated with an investigation."""
     stmt = select(Entity).where(Entity.investigation_id == investigation_id)
     return list(db.scalars(stmt).all())
+
+
+def get_entity_by_normalized(
+    db: Session, investigation_id: uuid.UUID, entity_type: str, normalized_value: str
+) -> Optional[Entity]:
+    """Lookup entity by idempotency key (investigation_id, entity_type, normalized_value)."""
+    stmt = select(Entity).where(
+        Entity.investigation_id == investigation_id,
+        Entity.entity_type == entity_type,
+        Entity.normalized_value == normalized_value,
+    )
+    return db.scalars(stmt).first()
+
+
+def get_or_create_entity(
+    db: Session,
+    investigation_id: uuid.UUID,
+    entity_type: str,
+    name: str,
+    normalized_value: str,
+    confidence: float,
+) -> tuple[Entity, bool]:
+    """Return existing entity or create new one. Returns (entity, was_created)."""
+    existing = get_entity_by_normalized(db, investigation_id, entity_type, normalized_value)
+    if existing:
+        return existing, False
+    db_obj = Entity(
+        investigation_id=investigation_id,
+        entity_type=entity_type,
+        name=name,
+        normalized_value=normalized_value,
+        confidence=confidence,
+    )
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj, True
 
 
 # --- Relationship CRUD ---
@@ -161,3 +225,49 @@ def get_relationships(
     """Retrieve all relationships associated with an investigation."""
     stmt = select(Relationship).where(Relationship.investigation_id == investigation_id)
     return list(db.scalars(stmt).all())
+
+
+def get_relationship_by_unique_key(
+    db: Session,
+    investigation_id: uuid.UUID,
+    source_entity_id: uuid.UUID,
+    target_entity_id: uuid.UUID,
+    relationship_type: str,
+) -> Optional[Relationship]:
+    """Lookup relationship by idempotency key (investigation_id, source_entity_id, target_entity_id, relationship_type)."""
+    stmt = select(Relationship).where(
+        Relationship.investigation_id == investigation_id,
+        Relationship.source_entity_id == source_entity_id,
+        Relationship.target_entity_id == target_entity_id,
+        Relationship.relationship_type == relationship_type,
+    )
+    return db.scalars(stmt).first()
+
+
+def get_or_create_relationship(
+    db: Session,
+    investigation_id: uuid.UUID,
+    source_entity_id: uuid.UUID,
+    target_entity_id: uuid.UUID,
+    relationship_type: str,
+    confidence: float,
+    source_document_id: Optional[uuid.UUID] = None,
+) -> tuple[Relationship, bool]:
+    """Return existing relationship or create a new one. Returns (relationship, was_created)."""
+    existing = get_relationship_by_unique_key(
+        db, investigation_id, source_entity_id, target_entity_id, relationship_type
+    )
+    if existing:
+        return existing, False
+    db_obj = Relationship(
+        investigation_id=investigation_id,
+        source_entity_id=source_entity_id,
+        target_entity_id=target_entity_id,
+        relationship_type=relationship_type,
+        confidence=confidence,
+        source_document_id=source_document_id,
+    )
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj, True
