@@ -60,6 +60,129 @@ ACTION_REVIEW_LOW_CONFIDENCE_EVIDENCE: str = "REVIEW_LOW_CONFIDENCE_EVIDENCE"
 ACTION_VERIFY_AMBIGUOUS_IDENTITY: str = "VERIFY_AMBIGUOUS_IDENTITY"
 
 
+def _entity_type_label(entity_type: str) -> str:
+    """Return a human-readable noun phrase for an entity type used in recommendation wording."""
+    _map: Dict[str, str] = {
+        "person": "person",
+        "phone": "phone number",
+        "vehicle": "vehicle",
+        "location": "location",
+        "event": "event",
+        "entity": "entity",
+    }
+    return _map.get(entity_type.lower(), "entity")
+
+
+def _build_entity_recommendation_title(
+    entity_type: str, label: str, is_connector: bool
+) -> str:
+    """Build an entity-type-specific recommendation title.
+
+    Returns wording appropriate to the entity type so that Locations, Phones,
+    and Vehicles receive meaningful intelligence-specific action phrasing rather
+    than the generic 'Review highly connected entity' template.
+    """
+    et = entity_type.lower()
+
+    if is_connector:
+        if et == "person":
+            return f"Review network connector: {label}"
+        elif et == "phone":
+            return f"Review communication hub associated with phone: {label}"
+        elif et == "vehicle":
+            return f"Review vehicle as network connector: {label}"
+        elif et == "location":
+            return f"Review location as network connector: {label}"
+        else:
+            return f"Review network connector: {label}"
+    else:
+        if et == "person":
+            return f"Review highly connected person: {label}"
+        elif et == "phone":
+            return f"Review communication intelligence associated with phone: {label}"
+        elif et == "vehicle":
+            return f"Review vehicle intelligence associated with: {label}"
+        elif et == "location":
+            return f"Review location intelligence and connected evidence: {label}"
+        elif et == "event":
+            return f"Review event intelligence and associated network: {label}"
+        else:
+            return f"Review highly connected entity: {label}"
+
+
+def _build_entity_connector_reason(
+    entity_type: str, label: str, bet_c: float, connection_count: int,
+    valid_records: List[str], avg_confidence: float
+) -> str:
+    """Build the primary reason string for a network-connector recommendation."""
+    et = entity_type.lower()
+    if et == "person":
+        return (
+            f"Person '{label}' exhibits notable betweenness centrality ({bet_c:.2f}), "
+            "serving as a structural connector between distinct segments of the evidence network."
+        )
+    elif et == "phone":
+        return (
+            f"Phone '{label}' is a communication hub with betweenness centrality {bet_c:.2f}, "
+            "bridging distinct call clusters in the evidence network."
+        )
+    elif et == "vehicle":
+        return (
+            f"Vehicle '{label}' links distinct sub-groups in the network "
+            f"(betweenness centrality: {bet_c:.2f}). Reviewing surveillance and movement records is advised."
+        )
+    elif et == "location":
+        return (
+            f"Location '{label}' is a structural bridge between separate network segments "
+            f"(betweenness centrality: {bet_c:.2f}). Reviewing associated evidence at this site is advised."
+        )
+    else:
+        return (
+            f"Entity '{label}' exhibits notable betweenness centrality ({bet_c:.2f}), "
+            "serving as a structural connector between distinct segments of the evidence network."
+        )
+
+
+def _build_entity_high_value_reason(
+    entity_type: str, label: str, connection_count: int, deg_c: float
+) -> str:
+    """Build the primary reason string for a high-value entity recommendation."""
+    et = entity_type.lower()
+    if et == "person":
+        return (
+            f"Review person '{label}' because of network connectivity "
+            f"({connection_count} direct connection(s), degree centrality: {deg_c:.2f})."
+        )
+    elif et == "phone":
+        return (
+            f"Review communication intelligence for phone '{label}' — linked to "
+            f"{connection_count} direct evidence relationship(s) "
+            f"(degree centrality: {deg_c:.2f}). Call record analysis recommended."
+        )
+    elif et == "vehicle":
+        return (
+            f"Review vehicle intelligence for '{label}' — associated with "
+            f"{connection_count} evidence relationship(s) "
+            f"(degree centrality: {deg_c:.2f}). Registration and movement history advised."
+        )
+    elif et == "location":
+        return (
+            f"Review location intelligence for '{label}' — connected to "
+            f"{connection_count} evidence relationship(s) "
+            f"(degree centrality: {deg_c:.2f}). Site analysis and linked evidence review advised."
+        )
+    elif et == "event":
+        return (
+            f"Review event '{label}' — associated with {connection_count} evidence relationship(s) "
+            f"(degree centrality: {deg_c:.2f})."
+        )
+    else:
+        return (
+            f"Review entity '{label}' because of its network connectivity "
+            f"({connection_count} direct connection(s), degree centrality: {deg_c:.2f})."
+        )
+
+
 def parse_timestamp_safe(ts_str: Any) -> Optional[datetime]:
     """Parse a timestamp string safely if valid, returning None if unknown or missing.
 
@@ -364,9 +487,11 @@ def generate_next_best_actions(
 
         if is_connector:
             action_type = ACTION_REVIEW_NETWORK_CONNECTOR
-            title = f"Review network connector entity: {label}"
+            title = _build_entity_recommendation_title(entity_type, label, is_connector=True)
             base_reasons.append(
-                f"Entity '{label}' exhibits notable betweenness centrality ({bet_c:.2f}), serving as a structural connector between distinct segments of the evidence network."
+                _build_entity_connector_reason(
+                    entity_type, label, bet_c, connection_count, valid_records, avg_confidence
+                )
             )
             if connection_count > 0:
                 base_reasons.append(
@@ -375,9 +500,9 @@ def generate_next_best_actions(
             info_gain = 0.85
         else:
             action_type = ACTION_INVESTIGATE_HIGH_VALUE_ENTITY
-            title = f"Review highly connected entity: {label}"
+            title = _build_entity_recommendation_title(entity_type, label, is_connector=False)
             base_reasons.append(
-                f"Review entity '{label}' because of its network connectivity ({connection_count} direct connection(s), degree centrality: {deg_c:.2f})."
+                _build_entity_high_value_reason(entity_type, label, connection_count, deg_c)
             )
             if bet_c > 0.0 and total_nodes > 3:
                 base_reasons.append(

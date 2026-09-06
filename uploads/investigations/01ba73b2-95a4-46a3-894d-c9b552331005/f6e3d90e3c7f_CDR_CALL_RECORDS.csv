@@ -1,0 +1,7 @@
+record_id,timestamp,notes
+CDR-001,02/09/2026 21:45,Rahul K. called Ankit Sharma using phone number +91-9876543210.
+CDR-002,02/09/2026 21:50,Ankit Sharma called Suresh Patel using phone number +91-9123456780.
+CDR-003,02/09/2026 22:05,Ankit Sharma used phone number +91-9876543210 to call an unknown contact.
+CDR-004,02/09/2026 22:15,Suresh Patel used phone number +91-9123456780.
+CDR-005,02/09/2026 22:30,Rahul K. used phone number +91-9988776655.
+CDR-006,02/09/2026 22:40,Ankit Sharma travelled to Sector 21 Noida after the call with Suresh Patel.

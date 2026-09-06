@@ -1106,9 +1106,14 @@ export default function DocumentUploadPanel({
                                     : '○ Entity Extraction'}
                                 </div>
                                 <div className="text-[10px] text-slate-400 mt-0.5">
-                                  {pState.stepCounts.entitiesTotal
-                                    ? `${pState.stepCounts.entitiesTotal} entities saved`
-                                    : 'Extract named entities'}
+                                  {(() => {
+                                    const total = pState.stepCounts.entitiesTotal ?? pState.summary?.entitiesTotal;
+                                    const saved = pState.stepCounts.entitiesSaved ?? pState.summary?.entitiesSaved;
+                                    if (total === undefined || total === null) return 'Extract named entities';
+                                    if (total === 0) return 'No entities found';
+                                    if (saved > 0) return `${saved} new entities saved`;
+                                    return `${total} entities found • existing intelligence reused`;
+                                  })()}
                                 </div>
                               </div>
 
@@ -1138,13 +1143,18 @@ export default function DocumentUploadPanel({
                                 </div>
                                 <div className="font-semibold text-slate-200">
                                   {pState.stepStatus.relationships === 'completed'
-                                    ? '✓ Relationships Saved'
+                                    ? '✓ Relationships Discovered'
                                     : '○ Relationship Discovery'}
                                 </div>
                                 <div className="text-[10px] text-slate-400 mt-0.5">
-                                  {pState.stepCounts.relationshipsTotal
-                                    ? `${pState.stepCounts.relationshipsTotal} relationships saved`
-                                    : 'Evidence links'}
+                                  {(() => {
+                                    const total = pState.stepCounts.relationshipsTotal ?? pState.summary?.relationshipsTotal;
+                                    const saved = pState.stepCounts.relationshipsSaved ?? pState.summary?.relationshipsSaved;
+                                    if (total === undefined || total === null) return 'Evidence links';
+                                    if (total === 0) return 'No relationships found';
+                                    if (saved > 0) return `${saved} new relationships saved`;
+                                    return `${total} relationships found • existing intelligence reused`;
+                                  })()}
                                 </div>
                               </div>
 
@@ -1310,9 +1320,9 @@ export default function DocumentUploadPanel({
                               </div>
 
                               {pState.summary.entitiesSaved === 0 && pState.summary.relationshipsSaved === 0 && (
-                                <div className="text-[11px] text-amber-300 bg-amber-950/40 border border-amber-800/50 rounded px-2.5 py-1 flex items-center gap-1.5 font-medium">
-                                  <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                                  <span>No new records added — existing intelligence was reused.</span>
+                                <div className="text-[11px] text-sky-300 bg-sky-950/40 border border-sky-800/50 rounded px-2.5 py-1 flex items-center gap-1.5 font-medium">
+                                  <Info className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                  <span>ℹ Existing intelligence reused — no duplicate records were added.</span>
                                 </div>
                               )}
 

@@ -133,9 +133,18 @@ def get_investigation_graph(
                 "evidence_snippet": getattr(r, "evidence_snippet", None),
             })
 
+    # Override topology counts to match the actual returned lists.
+    # raw_graph metrics count only NetworkX-connected nodes; final_nodes also
+    # includes isolated DB entities, so they could differ. Both the graph
+    # header (reads nodes.length) and pipeline summary (reads metrics.total_nodes)
+    # must agree — so we normalise here at the single source of truth.
+    reconciled_metrics = dict(raw_graph.get("metrics", {}))
+    reconciled_metrics["total_nodes"] = len(final_nodes)
+    reconciled_metrics["total_edges"] = len(final_edges)
+
     return {
         "investigation_id": str(investigation_id),
         "nodes": final_nodes,
         "edges": final_edges,
-        "metrics": raw_graph.get("metrics", {}),
+        "metrics": reconciled_metrics,
     }

@@ -383,3 +383,183 @@ def test_fastapi_next_best_actions_with_custom_records_and_identities():
     action_types = [r["action_type"] for r in data["recommendations"]]
     assert ACTION_REVIEW_LOW_CONFIDENCE_EVIDENCE in action_types
     assert ACTION_VERIFY_AMBIGUOUS_IDENTITY in action_types
+
+
+# =============================================================================
+# Entity-Type-Aware NBA Wording Regression Tests  (Section 1 Quality Fix)
+# =============================================================================
+
+def _make_single_entity_network(entity_type: str, label: str) -> tuple[dict, str]:
+    """Helper: minimal 2-node network with one edge for a given entity type."""
+    node_id = f"{entity_type.lower()}:{label.lower().replace(' ', '_')}"
+    other_id = "person:witness_a"
+    network = {
+        "nodes": [
+            {
+                "id": node_id,
+                "label": label,
+                "entity_type": entity_type,
+                "degree_centrality": 0.9,
+                "betweenness_centrality": 0.0,
+            },
+            {
+                "id": other_id,
+                "label": "Witness A",
+                "entity_type": "Person",
+                "degree_centrality": 0.1,
+                "betweenness_centrality": 0.0,
+            },
+        ],
+        "edges": [
+            {
+                "source": node_id,
+                "target": other_id,
+                "confidence": 0.85,
+                "relationship_type": "ASSOCIATED_WITH",
+                "source_record_id": "REC-001",
+            }
+        ],
+        "metrics": {"total_nodes": 2, "total_edges": 1},
+    }
+    return network, node_id
+
+
+def test_nba_wording_person_entity():
+    """Person entities must receive person-specific NBA wording."""
+    network, node_id = _make_single_entity_network("Person", "Rajesh Kumar")
+    result = generate_next_best_actions(network)
+    recs = result["recommendations"]
+
+    entity_recs = [r for r in recs if r["action_type"] in (
+        ACTION_INVESTIGATE_HIGH_VALUE_ENTITY, ACTION_REVIEW_NETWORK_CONNECTOR
+    ) and any(e.get("id") == node_id for e in r.get("target_entities", []))]
+    assert len(entity_recs) >= 1, "Expected at least one entity-level recommendation for Rajesh Kumar"
+
+    for rec in entity_recs:
+        title = rec["title"]
+        # Must use person-specific language
+        assert "person" in title.lower() or "network connector" in title.lower(), (
+            f"Expected person-specific title, got: {title!r}"
+        )
+        # Must NOT use the old generic "entity" template
+        assert "entity:" not in title.lower(), (
+            f"Generic 'entity:' wording must not appear for Person, got: {title!r}"
+        )
+
+
+def test_nba_wording_location_entity():
+    """Location entities must receive location-specific NBA wording, not generic 'Review highly connected entity'."""
+    network, node_id = _make_single_entity_network("Location", "Delhi")
+    result = generate_next_best_actions(network)
+    recs = result["recommendations"]
+
+    entity_recs = [r for r in recs if r["action_type"] in (
+        ACTION_INVESTIGATE_HIGH_VALUE_ENTITY, ACTION_REVIEW_NETWORK_CONNECTOR
+    ) and any(e.get("id") == node_id for e in r.get("target_entities", []))]
+    assert len(entity_recs) >= 1, "Expected at least one entity-level recommendation for Location"
+
+    for rec in entity_recs:
+        title = rec["title"]
+        # Must contain location-specific wording
+        assert "location" in title.lower(), (
+            f"Expected location-specific title, got: {title!r}"
+        )
+        # The old generic wording should NOT appear for a Location
+        assert title != f"Review highly connected entity: Delhi", (
+            f"Location received generic person-style title: {title!r}"
+        )
+        assert "entity:" not in title.lower() or "connector" in title.lower(), (
+            f"Old generic 'highly connected entity' wording must not appear for Location, got: {title!r}"
+        )
+
+
+def test_nba_wording_phone_entity():
+    """Phone entities must receive communication-specific NBA wording."""
+    network, node_id = _make_single_entity_network("Phone", "9876543210")
+    result = generate_next_best_actions(network)
+    recs = result["recommendations"]
+
+    entity_recs = [r for r in recs if r["action_type"] in (
+        ACTION_INVESTIGATE_HIGH_VALUE_ENTITY, ACTION_REVIEW_NETWORK_CONNECTOR
+    ) and any(e.get("id") == node_id for e in r.get("target_entities", []))]
+    assert len(entity_recs) >= 1, "Expected at least one entity-level recommendation for Phone"
+
+    for rec in entity_recs:
+        title = rec["title"]
+        # Must contain phone/communication-specific wording
+        assert "phone" in title.lower() or "communication" in title.lower(), (
+            f"Expected phone-specific title, got: {title!r}"
+        )
+        assert "entity:" not in title.lower(), (
+            f"Generic 'entity:' wording must not appear for Phone, got: {title!r}"
+        )
+
+
+def test_nba_wording_vehicle_entity():
+    """Vehicle entities must receive vehicle-specific NBA wording."""
+    network, node_id = _make_single_entity_network("Vehicle", "DL-01-AB-1234")
+    result = generate_next_best_actions(network)
+    recs = result["recommendations"]
+
+    entity_recs = [r for r in recs if r["action_type"] in (
+        ACTION_INVESTIGATE_HIGH_VALUE_ENTITY, ACTION_REVIEW_NETWORK_CONNECTOR
+    ) and any(e.get("id") == node_id for e in r.get("target_entities", []))]
+    assert len(entity_recs) >= 1, "Expected at least one entity-level recommendation for Vehicle"
+
+    for rec in entity_recs:
+        title = rec["title"]
+        # Must contain vehicle-specific wording
+        assert "vehicle" in title.lower(), (
+            f"Expected vehicle-specific title, got: {title!r}"
+        )
+        assert "entity:" not in title.lower(), (
+            f"Generic 'entity:' wording must not appear for Vehicle, got: {title!r}"
+        )
+
+
+def test_nba_wording_connector_person():
+    """Person acting as network connector must use 'Review network connector' wording (not 'entity')."""
+    # Build a 5-node star to give non-zero betweenness centrality
+    network = {
+        "nodes": [
+            {"id": "p:hub", "label": "Vikram Sharma", "entity_type": "Person",
+             "degree_centrality": 0.8, "betweenness_centrality": 0.6},
+            {"id": "p:a", "label": "Amit", "entity_type": "Person",
+             "degree_centrality": 0.2, "betweenness_centrality": 0.0},
+            {"id": "p:b", "label": "Priya", "entity_type": "Person",
+             "degree_centrality": 0.2, "betweenness_centrality": 0.0},
+            {"id": "loc:delhi", "label": "Delhi", "entity_type": "Location",
+             "degree_centrality": 0.2, "betweenness_centrality": 0.0},
+            {"id": "ph:9876", "label": "9876543210", "entity_type": "Phone",
+             "degree_centrality": 0.2, "betweenness_centrality": 0.0},
+        ],
+        "edges": [
+            {"source": "p:hub", "target": "p:a", "confidence": 0.9,
+             "relationship_type": "KNOWN_ASSOCIATE", "source_record_id": "R1"},
+            {"source": "p:hub", "target": "p:b", "confidence": 0.9,
+             "relationship_type": "KNOWN_ASSOCIATE", "source_record_id": "R1"},
+            {"source": "p:hub", "target": "loc:delhi", "confidence": 0.9,
+             "relationship_type": "LOCATED_AT", "source_record_id": "R2"},
+            {"source": "p:hub", "target": "ph:9876", "confidence": 0.9,
+             "relationship_type": "USES_PHONE", "source_record_id": "R2"},
+        ],
+        "metrics": {"total_nodes": 5, "total_edges": 4},
+    }
+
+    result = generate_next_best_actions(network)
+    recs = result["recommendations"]
+
+    # The hub person should be a connector; verify its title
+    hub_recs = [r for r in recs if any(
+        e["id"] == "p:hub" for e in r["target_entities"]
+    )]
+    assert len(hub_recs) >= 1, "Expected recommendation for hub person"
+
+    hub_rec = hub_recs[0]
+    title = hub_rec["title"]
+    # Person connector must NOT use old generic "network connector entity"
+    assert "entity" not in title.lower() or "connector" not in title.lower() or "person" in title.lower() or "Vikram" in title, (
+        f"Unexpected generic title for person connector: {title!r}"
+    )
+    # Must contain the entity label
+    assert "Vikram Sharma" in title, f"Title should contain entity label, got: {title!r}"

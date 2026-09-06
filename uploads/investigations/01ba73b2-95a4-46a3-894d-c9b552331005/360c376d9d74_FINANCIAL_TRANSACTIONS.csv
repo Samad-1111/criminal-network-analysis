@@ -1,0 +1,5 @@
+record_id,timestamp,notes
+FIN-001,02/09/2026 23:00,R. Kumar transferred money to Ankit Sharma. The transaction amount was flagged as suspicious by the bank.
+FIN-002,03/09/2026 09:15,Ankit Sharma transferred money to Suresh Patel. The account used is registered in Sector 21 Noida.
+FIN-003,03/09/2026 10:30,Ankit Sharma operates a bank account linked to multiple suspicious transactions.
+FIN-004,04/09/2026 14:00,An account belonging to Priya Verma received a small transfer from an unrelated third party. No connection to Ankit Sharma or Rahul Kumar has been confirmed.
