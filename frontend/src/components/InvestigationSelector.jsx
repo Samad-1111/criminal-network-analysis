@@ -77,12 +77,12 @@ export default function InvestigationSelector({
   };
 
   return (
-    <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 text-xs">
+    <div className="bg-cream border-b border-border px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 text-xs">
       {/* Left side: Active Case & Selection */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 font-medium text-slate-300">
-          <Briefcase className="w-4 h-4 text-blue-400" />
-          <span className="hidden sm:inline">Active Case:</span>
+        <div className="flex items-center gap-1.5 font-medium text-warm-gray">
+          <Briefcase className="w-4 h-4 text-accent-red" />
+          <span className="hidden sm:inline uppercase tracking-wider text-[10px] font-semibold">Active Case:</span>
         </div>
 
         {/* Dropdown Selector */}
@@ -99,7 +99,7 @@ export default function InvestigationSelector({
               }
             }}
             disabled={loading}
-            className="bg-slate-800 border border-slate-700 hover:border-slate-600 rounded px-3 py-1.5 text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer max-w-[280px] sm:max-w-[360px] truncate"
+            className="bg-warm-white border border-border-strong hover:border-warm-gray rounded px-3 py-1.5 text-charcoal font-medium focus:outline-none focus:ring-1 focus:ring-accent-blue cursor-pointer max-w-[280px] sm:max-w-[360px] truncate"
           >
             <option value="demo">🔬 Synthetic Demo Case (Operation Blackout)</option>
             {investigations.map((inv) => (
@@ -112,18 +112,18 @@ export default function InvestigationSelector({
 
         {/* Active Investigation Status Badge */}
         {activeInvestigation ? (
-          <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded bg-blue-950/60 border border-blue-800/60 text-blue-300">
-            <span className="font-semibold">{activeInvestigation.case_number}</span>
-            <span className="text-blue-400/50">•</span>
-            <span className="truncate max-w-[200px]">{activeInvestigation.title}</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-mono bg-blue-900/80 text-blue-200">
+          <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded bg-accent-blue-light border border-blue-200 text-accent-blue">
+            <span className="font-semibold font-mono text-[11px]">{activeInvestigation.case_number}</span>
+            <span className="text-blue-300">•</span>
+            <span className="truncate max-w-[200px] text-[11px]">{activeInvestigation.title}</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-mono bg-blue-100 text-accent-blue font-semibold">
               {activeInvestigation.status || 'OPEN'}
             </span>
           </div>
         ) : (
-          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 text-slate-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-            <span>Demo Mode (Synthetic Records)</span>
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded bg-semantic-amber-light border border-amber-200 text-semantic-amber">
+            <span className="w-1.5 h-1.5 rounded-full bg-semantic-amber"></span>
+            <span className="text-[11px]">Demo Mode (Synthetic Records)</span>
           </div>
         )}
       </div>
@@ -132,7 +132,7 @@ export default function InvestigationSelector({
       <div className="flex items-center gap-2">
         <button
           onClick={handleOpenModal}
-          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-3 py-1.5 rounded transition-colors shadow-sm"
+          className="flex items-center gap-1.5 bg-accent-red hover:bg-red-800 text-white font-medium px-3 py-1.5 rounded transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>New Investigation</span>
@@ -143,7 +143,7 @@ export default function InvestigationSelector({
             onClick={handleDelete}
             disabled={deleting}
             title="Delete current investigation"
-            className="flex items-center gap-1 bg-slate-800 hover:bg-red-950/60 text-slate-400 hover:text-red-300 border border-slate-700 hover:border-red-800 px-2.5 py-1.5 rounded transition-colors disabled:opacity-50"
+            className="flex items-center gap-1 bg-warm-white hover:bg-semantic-red-light text-warm-gray hover:text-semantic-red border border-border hover:border-red-300 px-2.5 py-1.5 rounded transition-colors disabled:opacity-50"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Delete</span>
@@ -154,7 +154,7 @@ export default function InvestigationSelector({
           onClick={onRefresh}
           disabled={loading}
           title="Refresh investigations list"
-          className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors disabled:opacity-50"
+          className="p-1.5 rounded bg-warm-white hover:bg-cream text-warm-gray hover:text-charcoal border border-border transition-colors disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
@@ -162,32 +162,32 @@ export default function InvestigationSelector({
 
       {/* New Investigation Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-lg shadow-2xl w-full max-w-md p-5 text-slate-100">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-              <div className="flex items-center gap-2 font-semibold text-sm text-slate-100">
-                <FolderOpen className="w-4 h-4 text-blue-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 backdrop-blur-sm p-4">
+          <div className="bg-warm-white border border-border-strong rounded-lg shadow-xl w-full max-w-md p-5 text-charcoal">
+            <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+              <div className="flex items-center gap-2 font-semibold text-sm text-charcoal">
+                <FolderOpen className="w-4 h-4 text-accent-red" />
                 <span>Create New Investigation</span>
               </div>
               <button
                 onClick={handleCloseModal}
-                className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800"
+                className="text-warm-gray hover:text-charcoal p-1 rounded hover:bg-cream"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {formError && (
-              <div className="mb-4 p-2.5 rounded bg-red-950/50 border border-red-800/60 text-red-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              <div className="mb-4 p-2.5 rounded bg-semantic-red-light border border-red-200 text-semantic-red text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-semantic-red" />
                 <span>{formError}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1">
-                  Case Reference Number <span className="text-red-400">*</span>
+                <label className="block text-warm-gray font-medium mb-1">
+                  Case Reference Number <span className="text-semantic-red">*</span>
                 </label>
                 <input
                   type="text"
@@ -195,13 +195,13 @@ export default function InvestigationSelector({
                   placeholder="e.g. CAS-2026-101"
                   value={formData.case_number}
                   onChange={(e) => setFormData({ ...formData, case_number: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                  className="w-full bg-ivory border border-border-strong rounded px-3 py-2 text-charcoal focus:outline-none focus:ring-1 focus:ring-accent-blue font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1">
-                  Investigation Title <span className="text-red-400">*</span>
+                <label className="block text-warm-gray font-medium mb-1">
+                  Investigation Title <span className="text-semantic-red">*</span>
                 </label>
                 <input
                   type="text"
@@ -209,27 +209,27 @@ export default function InvestigationSelector({
                   placeholder="e.g. Operation Syndicate Blackout"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full bg-ivory border border-border-strong rounded px-3 py-2 text-charcoal focus:outline-none focus:ring-1 focus:ring-accent-blue"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Description / Context</label>
+                <label className="block text-warm-gray font-medium mb-1">Description / Context</label>
                 <textarea
                   rows="3"
                   placeholder="Summary of case details, target syndicates, or intelligence objectives..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full bg-ivory border border-border-strong rounded px-3 py-2 text-charcoal focus:outline-none focus:ring-1 focus:ring-accent-blue"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Initial Status</label>
+                <label className="block text-warm-gray font-medium mb-1">Initial Status</label>
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                  className="w-full bg-ivory border border-border-strong rounded px-3 py-2 text-charcoal focus:outline-none focus:ring-1 focus:ring-accent-blue cursor-pointer"
                 >
                   <option value="OPEN">OPEN (Active Investigation)</option>
                   <option value="IN_PROGRESS">IN_PROGRESS (Under Review)</option>
@@ -238,18 +238,18 @@ export default function InvestigationSelector({
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800 mt-4">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border mt-4">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                  className="px-3 py-1.5 rounded bg-cream hover:bg-parchment text-warm-gray transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded bg-accent-red hover:bg-red-800 text-white font-medium transition-colors disabled:opacity-50"
                 >
                   {submitting ? (
                     <>

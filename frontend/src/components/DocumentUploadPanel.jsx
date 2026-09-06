@@ -39,12 +39,12 @@ import {
 } from '../services/api';
 
 const CATEGORIES = [
-  { id: 'FIR', label: 'FIR', description: 'First Information Report', icon: FileText, color: 'text-amber-400 border-amber-500/30 bg-amber-500/10' },
-  { id: 'CDR', label: 'CDR', description: 'Call Detail Records', icon: PhoneCall, color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
-  { id: 'FINANCIAL', label: 'Financial Records', description: 'Bank & Transaction Logs', icon: DollarSign, color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
-  { id: 'POLICE_REPORT', label: 'Police Reports', description: 'Surveillance & Interrogation', icon: ClipboardList, color: 'text-purple-400 border-purple-500/30 bg-purple-500/10' },
-  { id: 'SURVEILLANCE', label: 'Surveillance Reports', description: 'Visual & Audio Notes', icon: Video, color: 'text-rose-400 border-rose-500/30 bg-rose-500/10', warning: 'Video formats (.mp4, .avi) unsupported in current version' },
-  { id: 'OTHER', label: 'Other Intel', description: 'Miscellaneous Evidence', icon: Folder, color: 'text-slate-400 border-slate-500/30 bg-slate-500/10' },
+  { id: 'FIR', label: 'FIR', description: 'First Information Report', icon: FileText, color: 'text-semantic-amber border-amber-200 bg-semantic-amber-light' },
+  { id: 'CDR', label: 'CDR', description: 'Call Detail Records', icon: PhoneCall, color: 'text-accent-blue border-blue-200 bg-accent-blue-light' },
+  { id: 'FINANCIAL', label: 'Financial Records', description: 'Bank & Transaction Logs', icon: DollarSign, color: 'text-semantic-green border-green-200 bg-semantic-green-light' },
+  { id: 'POLICE_REPORT', label: 'Police Reports', description: 'Surveillance & Interrogation', icon: ClipboardList, color: 'text-purple-700 border-purple-200 bg-purple-50' },
+  { id: 'SURVEILLANCE', label: 'Surveillance Reports', description: 'Visual & Audio Notes', icon: Video, color: 'text-semantic-red border-red-200 bg-semantic-red-light', warning: 'Video formats (.mp4, .avi) unsupported in current version' },
+  { id: 'OTHER', label: 'Other Intel', description: 'Miscellaneous Evidence', icon: Folder, color: 'text-warm-gray border-border bg-cream' },
 ];
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.csv'];
@@ -577,26 +577,80 @@ export default function DocumentUploadPanel({
 
   const currentCategoryObj = CATEGORIES.find((c) => c.id === selectedCategory) || CATEGORIES[0];
 
+  // Pipeline stage status styling helper
+  const getStageClasses = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-semantic-green-light border-green-200';
+      case 'running':
+        return 'bg-accent-blue-light border-blue-200';
+      case 'failed':
+        return 'bg-semantic-red-light border-red-200';
+      default:
+        return 'bg-cream border-border';
+    }
+  };
+
+  const getStageIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle2 className="w-4 h-4 text-semantic-green" />;
+      case 'running':
+        return <RefreshCw className="w-4 h-4 text-accent-blue animate-spin" />;
+      case 'failed':
+        return <AlertCircle className="w-4 h-4 text-semantic-red" />;
+      default:
+        return <span className="w-3.5 h-3.5 rounded-full border border-border-strong"></span>;
+    }
+  };
+
+  // Pipeline pill status styling
+  const getPillClasses = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-semantic-green-light text-semantic-green border-green-200';
+      case 'running':
+        return 'bg-accent-blue-light text-accent-blue border-blue-200 animate-pulse';
+      case 'failed':
+        return 'bg-semantic-red-light text-semantic-red border-red-200';
+      default:
+        return 'bg-cream text-warm-gray border-border';
+    }
+  };
+
+  const getPillIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <Check className="w-3 h-3 text-semantic-green" />;
+      case 'running':
+        return <RefreshCw className="w-3 h-3 animate-spin text-accent-blue" />;
+      case 'failed':
+        return <AlertCircle className="w-3 h-3 text-semantic-red" />;
+      default:
+        return <span className="w-2 h-2 rounded-full bg-muted-gray"></span>;
+    }
+  };
+
   return (
-    <div className="bg-slate-900/95 border-t border-slate-800 flex flex-col shrink-0 text-slate-100 transition-all duration-300">
+    <div className="bg-warm-white border-t border-border flex flex-col shrink-0 text-charcoal transition-all duration-300">
       {/* Header bar & collapse toggle */}
-      <div className="px-4 py-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+      <div className="px-5 py-2 bg-cream border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Upload className="w-4 h-4 text-blue-400" />
-          <h2 className="text-xs font-semibold tracking-wide uppercase text-slate-200">
+          <Upload className="w-4 h-4 text-accent-red" />
+          <h2 className="text-xs font-semibold tracking-wide uppercase text-charcoal">
             Evidence & Intelligence Management
           </h2>
           {activeInvestigation ? (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800/50">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-accent-blue-light text-accent-blue border border-blue-200">
               {activeInvestigation.case_number}
             </span>
           ) : (
-            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950/60 text-amber-400 border border-amber-800/50 font-mono">
+            <span className="text-[10px] px-2 py-0.5 rounded bg-semantic-amber-light text-semantic-amber border border-amber-200 font-mono">
               DEMO MODE
             </span>
           )}
           {documents.length > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cream text-warm-gray border border-border font-mono">
               {documents.length} File{documents.length > 1 ? 's' : ''}
             </span>
           )}
@@ -604,7 +658,7 @@ export default function DocumentUploadPanel({
 
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800 transition-colors flex items-center gap-1 text-xs cursor-pointer"
+          className="text-warm-gray hover:text-charcoal p-1 rounded hover:bg-parchment transition-colors flex items-center gap-1 text-xs cursor-pointer"
         >
           <span className="text-[11px] font-medium">{isCollapsed ? 'Expand Drawer' : 'Collapse'}</span>
           {isCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -616,9 +670,9 @@ export default function DocumentUploadPanel({
         <div className="p-4 space-y-4 max-h-[440px] overflow-y-auto">
           {/* Active Case Warning Banner if in Demo Mode */}
           {!activeInvestigation && (
-            <div className="p-3 rounded bg-amber-950/40 border border-amber-800/50 text-amber-300 text-xs flex items-center justify-between gap-3">
+            <div className="p-3 rounded bg-semantic-amber-light border border-amber-200 text-semantic-amber text-xs flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 shrink-0 text-amber-400" />
+                <Info className="w-4 h-4 shrink-0 text-semantic-amber" />
                 <span>Select or create an investigation above to enable document uploads, pipeline orchestration, and PostgreSQL storage.</span>
               </div>
             </div>
@@ -629,21 +683,21 @@ export default function DocumentUploadPanel({
             <div
               className={`p-3 rounded text-xs flex items-center justify-between gap-2 border ${
                 alertMessage.type === 'error'
-                  ? 'bg-red-950/50 border-red-800/60 text-red-300'
+                  ? 'bg-semantic-red-light border-red-200 text-semantic-red'
                   : alertMessage.type === 'warning'
-                  ? 'bg-amber-950/50 border-amber-800/60 text-amber-300'
-                  : 'bg-emerald-950/50 border-emerald-800/60 text-emerald-300'
+                  ? 'bg-semantic-amber-light border-amber-200 text-semantic-amber'
+                  : 'bg-semantic-green-light border-green-200 text-semantic-green'
               }`}
             >
               <div className="flex items-center gap-2">
-                {alertMessage.type === 'error' && <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />}
-                {alertMessage.type === 'warning' && <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />}
-                {alertMessage.type === 'success' && <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />}
+                {alertMessage.type === 'error' && <AlertTriangle className="w-4 h-4 shrink-0 text-semantic-red" />}
+                {alertMessage.type === 'warning' && <AlertTriangle className="w-4 h-4 shrink-0 text-semantic-amber" />}
+                {alertMessage.type === 'success' && <CheckCircle2 className="w-4 h-4 shrink-0 text-semantic-green" />}
                 <span>{alertMessage.text}</span>
               </div>
               <button
                 onClick={() => setAlertMessage(null)}
-                className="text-slate-400 hover:text-slate-200 text-xs cursor-pointer"
+                className="text-warm-gray hover:text-charcoal text-xs cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -652,7 +706,7 @@ export default function DocumentUploadPanel({
 
           {/* 1. Categorized Upload Cards */}
           <div>
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            <div className="text-[11px] font-semibold text-warm-gray uppercase tracking-wider mb-2">
               1. Select Evidence Category
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
@@ -671,8 +725,8 @@ export default function DocumentUploadPanel({
                     }}
                     className={`p-2.5 rounded border text-left transition-all relative cursor-pointer ${
                       isSelected
-                        ? 'bg-blue-900/40 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.2)] ring-1 ring-blue-500/50'
-                        : 'bg-slate-800/60 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600'
+                        ? 'bg-accent-red-light border-accent-red/40 ring-1 ring-accent-red/20'
+                        : 'bg-warm-white border-border hover:bg-cream hover:border-border-strong'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
@@ -680,11 +734,11 @@ export default function DocumentUploadPanel({
                         <IconComp className="w-4 h-4" />
                       </div>
                       {isSelected && (
-                        <span className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.8)]"></span>
+                        <span className="w-2 h-2 rounded-full bg-accent-red"></span>
                       )}
                     </div>
-                    <div className="font-semibold text-xs text-slate-200 truncate">{cat.label}</div>
-                    <div className="text-[10px] text-slate-400 truncate">{cat.description}</div>
+                    <div className="font-semibold text-xs text-charcoal truncate">{cat.label}</div>
+                    <div className="text-[10px] text-warm-gray truncate">{cat.description}</div>
                   </button>
                 );
               })}
@@ -693,7 +747,7 @@ export default function DocumentUploadPanel({
 
           {/* 2. Drag & Drop Upload Zone or File Preview Card */}
           <div>
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            <div className="text-[11px] font-semibold text-warm-gray uppercase tracking-wider mb-2">
               2. Upload Document Evidence
             </div>
 
@@ -712,46 +766,46 @@ export default function DocumentUploadPanel({
                 onDragLeave={handleDragLeave}
                 className={`border-2 border-dashed rounded-lg p-4 text-center transition-all ${
                   isDragOver
-                    ? 'border-blue-500 bg-blue-950/30'
-                    : 'border-slate-700/70 bg-slate-800/40 hover:border-slate-600 hover:bg-slate-800/60'
+                    ? 'border-accent-red bg-accent-red-light'
+                    : 'border-border-strong bg-cream hover:border-warm-gray hover:bg-parchment'
                 }`}
               >
                 <div className="flex flex-col items-center justify-center py-2 space-y-2">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-blue-400">
+                  <div className="w-10 h-10 rounded-full bg-warm-white border border-border flex items-center justify-center text-accent-red">
                     <Upload className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-slate-200">
+                    <p className="text-xs font-medium text-charcoal">
                       Drag and drop evidence file here, or{' '}
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="text-blue-400 hover:text-blue-300 underline font-semibold cursor-pointer"
+                        className="text-accent-red hover:text-red-700 underline font-semibold cursor-pointer"
                       >
                         browse files
                       </button>
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Supported formats: <span className="font-mono text-slate-300">.pdf, .docx, .txt, .csv</span> (Max size: 50MB)
+                    <p className="text-[11px] text-warm-gray mt-0.5">
+                      Supported formats: <span className="font-mono text-charcoal">.pdf, .docx, .txt, .csv</span> (Max size: 50MB)
                     </p>
                   </div>
                 </div>
               </div>
             ) : (
               /* Selected File Card with explicit Upload Action */
-              <div className="bg-slate-800/90 border border-blue-500/50 rounded-lg p-3 shadow-lg space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-700/80 pb-2">
+              <div className="bg-warm-white border border-accent-red/30 rounded-lg p-3 space-y-3">
+                <div className="flex items-center justify-between border-b border-border pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-900/80 text-blue-300 border border-blue-700 uppercase font-mono">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-accent-blue-light text-accent-blue border border-blue-200 uppercase font-mono">
                       Ready to Upload
                     </span>
-                    <span className="text-xs text-slate-300">Category: <strong>{currentCategoryObj.label}</strong></span>
+                    <span className="text-xs text-warm-gray">Category: <strong className="text-charcoal">{currentCategoryObj.label}</strong></span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setSelectedFile(null)}
                     disabled={uploading}
-                    className="text-slate-400 hover:text-red-400 text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                    className="text-warm-gray hover:text-semantic-red text-xs flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>Cancel</span>
@@ -760,13 +814,13 @@ export default function DocumentUploadPanel({
 
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+                    <div className="w-10 h-10 rounded bg-accent-blue-light border border-blue-200 flex items-center justify-center text-accent-blue shrink-0">
                       <File className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="font-semibold text-slate-100 truncate text-sm">{selectedFile.name}</div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                        <span className="uppercase font-mono text-blue-300 font-semibold">
+                      <div className="font-semibold text-charcoal truncate text-sm">{selectedFile.name}</div>
+                      <div className="text-[11px] text-warm-gray flex items-center gap-2 mt-0.5">
+                        <span className="uppercase font-mono text-accent-blue font-semibold">
                           .{selectedFile.name.split('.').pop()}
                         </span>
                         <span>•</span>
@@ -780,7 +834,7 @@ export default function DocumentUploadPanel({
                       type="button"
                       onClick={handleUploadSubmit}
                       disabled={uploading || !activeInvestigation}
-                      className="flex items-center gap-2 px-5 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-md shadow-blue-900/40 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      className="flex items-center gap-2 px-5 py-2 rounded bg-accent-red hover:bg-red-800 text-white font-semibold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {uploading ? (
                         <>
@@ -798,9 +852,9 @@ export default function DocumentUploadPanel({
                 </div>
 
                 {uploading && (
-                  <div className="w-full bg-slate-700/60 rounded-full h-1.5 overflow-hidden">
+                  <div className="w-full bg-cream rounded-full h-1.5 overflow-hidden">
                     <div
-                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300 animate-pulse"
+                      className="bg-accent-red h-1.5 rounded-full transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
                   </div>
@@ -812,7 +866,7 @@ export default function DocumentUploadPanel({
           {/* 3. Case Documents & Intelligence Workflow */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <div className="text-[11px] font-semibold text-warm-gray uppercase tracking-wider flex items-center gap-2">
                 <span>3. Case Documents & Pipeline Orchestration ({documents.length})</span>
               </div>
               {activeInvestigation && (
@@ -820,7 +874,7 @@ export default function DocumentUploadPanel({
                   <button
                     onClick={runStepRefreshIntelligence}
                     title="Refresh graph and Next-Best-Actions from existing investigation database records"
-                    className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium bg-indigo-950/60 border border-indigo-800/60 px-2 py-1 rounded transition-colors cursor-pointer"
+                    className="text-xs text-accent-blue hover:text-blue-700 flex items-center gap-1 font-medium bg-accent-blue-light border border-blue-200 px-2 py-1 rounded transition-colors cursor-pointer"
                   >
                     <RefreshCw className="w-3 h-3" />
                     <span>Sync Graph & NBA</span>
@@ -828,7 +882,7 @@ export default function DocumentUploadPanel({
                   <button
                     onClick={loadDocuments}
                     disabled={loadingDocs}
-                    className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+                    className="text-xs text-warm-gray hover:text-charcoal flex items-center gap-1 cursor-pointer"
                   >
                     <RefreshCw className={`w-3 h-3 ${loadingDocs ? 'animate-spin' : ''}`} />
                     <span>Refresh List</span>
@@ -838,17 +892,17 @@ export default function DocumentUploadPanel({
             </div>
 
             {!activeInvestigation ? (
-              <div className="text-center py-6 border border-slate-800/80 rounded bg-slate-900/50 text-slate-500 text-xs">
+              <div className="text-center py-6 border border-border rounded bg-cream text-warm-gray text-xs">
                 No active investigation selected. Select an investigation above to view uploaded case evidence and run intelligence workflows.
               </div>
             ) : loadingDocs ? (
-              <div className="text-center py-6 text-slate-400 text-xs flex items-center justify-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+              <div className="text-center py-6 text-warm-gray text-xs flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-border-strong border-t-accent-red rounded-full animate-spin"></div>
                 <span>Fetching document records from PostgreSQL...</span>
               </div>
             ) : documents.length === 0 ? (
-              <div className="text-center py-6 border border-slate-800/80 rounded bg-slate-900/50 text-slate-500 text-xs">
-                No evidence documents uploaded yet for case <span className="font-semibold text-slate-300">{activeInvestigation.case_number}</span>.
+              <div className="text-center py-6 border border-border rounded bg-cream text-warm-gray text-xs">
+                No evidence documents uploaded yet for case <span className="font-semibold text-charcoal">{activeInvestigation.case_number}</span>.
               </div>
             ) : (
               <div className="space-y-3">
@@ -873,23 +927,23 @@ export default function DocumentUploadPanel({
                   return (
                     <div
                       key={doc.id}
-                      className="bg-slate-800/80 border border-slate-700/80 rounded-lg overflow-hidden transition-all shadow-sm hover:border-slate-600"
+                      className="bg-warm-white border border-border rounded-lg overflow-hidden transition-all hover:border-border-strong"
                     >
                       {/* Top Bar: Document info + High level pipeline badges + Actions */}
                       <div className="p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="p-2 rounded bg-slate-700/70 border border-slate-600 text-blue-400 shrink-0">
+                          <div className="p-2 rounded bg-cream border border-border text-accent-red shrink-0">
                             <FileText className="w-5 h-5" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-slate-100 truncate text-sm flex items-center gap-2">
+                            <div className="font-semibold text-charcoal truncate text-sm flex items-center gap-2">
                               <span title={doc.original_filename}>{doc.original_filename}</span>
-                              <span className="uppercase text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800/60">
+                              <span className="uppercase text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent-blue-light text-accent-blue border border-blue-200">
                                 {doc.document_type || 'OTHER'}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-2 mt-1">
-                              <span className="uppercase font-mono text-slate-300">.{doc.file_type || 'file'}</span>
+                            <div className="text-[11px] text-warm-gray flex flex-wrap items-center gap-2 mt-1">
+                              <span className="uppercase font-mono text-charcoal">.{doc.file_type || 'file'}</span>
                               <span>•</span>
                               <span>{formatFileSize(doc.file_size)}</span>
                               {doc.uploaded_at && (
@@ -905,8 +959,8 @@ export default function DocumentUploadPanel({
                         {/* Pipeline Stage Pills */}
                         <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-medium font-mono">
                           {/* 1. Uploaded */}
-                          <span className="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1">
-                            <Check className="w-3 h-3 text-emerald-400" />
+                          <span className="px-2 py-0.5 rounded bg-semantic-green-light text-semantic-green border border-green-200 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-semantic-green" />
                             <span>Uploaded</span>
                           </span>
 
@@ -914,71 +968,25 @@ export default function DocumentUploadPanel({
                           <span
                             className={`px-2 py-0.5 rounded border flex items-center gap-1 ${
                               pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED'
-                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60'
-                                : pState.stepStatus.process === 'running'
-                                ? 'bg-blue-950/90 text-blue-300 border-blue-700 animate-pulse'
-                                : pState.stepStatus.process === 'failed'
-                                ? 'bg-red-950/90 text-red-300 border-red-800'
-                                : 'bg-slate-900/80 text-slate-400 border-slate-700'
+                                ? getPillClasses('completed')
+                                : getPillClasses(pState.stepStatus.process)
                             }`}
                           >
-                            {pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED' ? (
-                              <Check className="w-3 h-3 text-emerald-400" />
-                            ) : pState.stepStatus.process === 'running' ? (
-                              <RefreshCw className="w-3 h-3 animate-spin text-blue-400" />
-                            ) : pState.stepStatus.process === 'failed' ? (
-                              <AlertCircle className="w-3 h-3 text-red-400" />
-                            ) : (
-                              <span className="w-2 h-2 rounded-full bg-slate-600"></span>
-                            )}
+                            {pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED'
+                              ? getPillIcon('completed')
+                              : getPillIcon(pState.stepStatus.process)}
                             <span>Text Extracted</span>
                           </span>
 
                           {/* 3. Entities Extracted */}
-                          <span
-                            className={`px-2 py-0.5 rounded border flex items-center gap-1 ${
-                              pState.stepStatus.entities === 'completed'
-                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60'
-                                : pState.stepStatus.entities === 'running'
-                                ? 'bg-blue-950/90 text-blue-300 border-blue-700 animate-pulse'
-                                : pState.stepStatus.entities === 'failed'
-                                ? 'bg-red-950/90 text-red-300 border-red-800'
-                                : 'bg-slate-900/80 text-slate-400 border-slate-700'
-                            }`}
-                          >
-                            {pState.stepStatus.entities === 'completed' ? (
-                              <Check className="w-3 h-3 text-emerald-400" />
-                            ) : pState.stepStatus.entities === 'running' ? (
-                              <RefreshCw className="w-3 h-3 animate-spin text-blue-400" />
-                            ) : pState.stepStatus.entities === 'failed' ? (
-                              <AlertCircle className="w-3 h-3 text-red-400" />
-                            ) : (
-                              <span className="w-2 h-2 rounded-full bg-slate-600"></span>
-                            )}
+                          <span className={`px-2 py-0.5 rounded border flex items-center gap-1 ${getPillClasses(pState.stepStatus.entities)}`}>
+                            {getPillIcon(pState.stepStatus.entities)}
                             <span>Entities</span>
                           </span>
 
                           {/* 4. Relationships */}
-                          <span
-                            className={`px-2 py-0.5 rounded border flex items-center gap-1 ${
-                              pState.stepStatus.relationships === 'completed'
-                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60'
-                                : pState.stepStatus.relationships === 'running'
-                                ? 'bg-blue-950/90 text-blue-300 border-blue-700 animate-pulse'
-                                : pState.stepStatus.relationships === 'failed'
-                                ? 'bg-red-950/90 text-red-300 border-red-800'
-                                : 'bg-slate-900/80 text-slate-400 border-slate-700'
-                            }`}
-                          >
-                            {pState.stepStatus.relationships === 'completed' ? (
-                              <Check className="w-3 h-3 text-emerald-400" />
-                            ) : pState.stepStatus.relationships === 'running' ? (
-                              <RefreshCw className="w-3 h-3 animate-spin text-blue-400" />
-                            ) : pState.stepStatus.relationships === 'failed' ? (
-                              <AlertCircle className="w-3 h-3 text-red-400" />
-                            ) : (
-                              <span className="w-2 h-2 rounded-full bg-slate-600"></span>
-                            )}
+                          <span className={`px-2 py-0.5 rounded border flex items-center gap-1 ${getPillClasses(pState.stepStatus.relationships)}`}>
+                            {getPillIcon(pState.stepStatus.relationships)}
                             <span>Relationships</span>
                           </span>
                         </div>
@@ -989,16 +997,16 @@ export default function DocumentUploadPanel({
                           <button
                             onClick={() => runFullPipeline(doc)}
                             disabled={pState.running}
-                            className="px-3 py-1.5 rounded bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-blue-950/50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+                            className="px-3 py-1.5 rounded bg-accent-red hover:bg-red-800 text-white font-semibold text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
                           >
                             {pState.running ? (
                               <>
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-200" />
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                                 <span>Running Pipeline...</span>
                               </>
                             ) : (
                               <>
-                                <Play className="w-3.5 h-3.5 text-blue-200 fill-blue-200" />
+                                <Play className="w-3.5 h-3.5 fill-white" />
                                 <span>Run Intelligence Pipeline</span>
                               </>
                             )}
@@ -1007,14 +1015,14 @@ export default function DocumentUploadPanel({
                           <button
                             onClick={() => handleDownload(doc)}
                             title="Download document file"
-                            className="p-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                            className="p-1.5 rounded bg-cream hover:bg-parchment text-warm-gray hover:text-charcoal border border-border transition-colors cursor-pointer"
                           >
                             <Download className="w-3.5 h-3.5" />
                           </button>
 
                           <button
                             onClick={() => toggleDocExpand(doc.id)}
-                            className="p-1.5 rounded bg-slate-700/80 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors flex items-center gap-1 text-xs cursor-pointer"
+                            className="p-1.5 rounded bg-cream hover:bg-parchment text-warm-gray hover:text-charcoal border border-border transition-colors flex items-center gap-1 text-xs cursor-pointer"
                           >
                             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </button>
@@ -1023,89 +1031,61 @@ export default function DocumentUploadPanel({
 
                       {/* Expandable Pipeline Workflow & Intelligence Drawer */}
                       {isExpanded && (
-                        <div className="border-t border-slate-700/80 bg-slate-900/90 p-4 space-y-4 text-xs">
+                        <div className="border-t border-border bg-ivory p-4 space-y-4 text-xs">
                           {/* Document Intelligence Status Stepper */}
                           <div>
-                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                              <Layers className="w-3.5 h-3.5 text-blue-400" />
-                              <span>DOCUMENT INTELLIGENCE PIPELINE STATUS</span>
+                            <div className="text-[11px] font-semibold text-warm-gray uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                              <Layers className="w-3.5 h-3.5 text-accent-red" />
+                              <span>Document Intelligence Pipeline Status</span>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                               {/* Step 1: Uploaded */}
-                              <div className="p-2.5 rounded bg-slate-800/80 border border-emerald-500/40 flex flex-col justify-between">
+                              <div className="p-2.5 rounded bg-semantic-green-light border border-green-200 flex flex-col justify-between">
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-mono text-slate-400">STAGE 1</span>
-                                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                  <span className="text-[10px] font-mono text-warm-gray">STAGE 1</span>
+                                  <CheckCircle2 className="w-4 h-4 text-semantic-green" />
                                 </div>
-                                <div className="font-semibold text-slate-200">✓ Uploaded</div>
-                                <div className="text-[10px] text-slate-400 mt-0.5">Physical file stored</div>
+                                <div className="font-semibold text-charcoal">✓ Uploaded</div>
+                                <div className="text-[10px] text-warm-gray mt-0.5">Physical file stored</div>
                               </div>
 
                               {/* Step 2: Text Extraction */}
                               <div
                                 className={`p-2.5 rounded border flex flex-col justify-between ${
                                   pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED'
-                                    ? 'bg-slate-800/80 border-emerald-500/40'
-                                    : pState.stepStatus.process === 'running'
-                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
-                                    : pState.stepStatus.process === 'failed'
-                                    ? 'bg-red-950/40 border-red-500/70'
-                                    : 'bg-slate-900/60 border-slate-800'
+                                    ? getStageClasses('completed')
+                                    : getStageClasses(pState.stepStatus.process)
                                 }`}
                               >
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-mono text-slate-400">STAGE 2</span>
-                                  {pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED' ? (
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                  ) : pState.stepStatus.process === 'running' ? (
-                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
-                                  ) : pState.stepStatus.process === 'failed' ? (
-                                    <AlertCircle className="w-4 h-4 text-red-400" />
-                                  ) : (
-                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
-                                  )}
+                                  <span className="text-[10px] font-mono text-warm-gray">STAGE 2</span>
+                                  {pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED'
+                                    ? getStageIcon('completed')
+                                    : getStageIcon(pState.stepStatus.process)}
                                 </div>
-                                <div className="font-semibold text-slate-200">
+                                <div className="font-semibold text-charcoal">
                                   {pState.stepStatus.process === 'completed' || doc.processing_status === 'COMPLETED'
                                     ? '✓ Text Extracted'
                                     : '○ Text Extraction'}
                                 </div>
-                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                <div className="text-[10px] text-warm-gray mt-0.5">
                                   {doc.processing_status === 'COMPLETED' ? 'Content parsed' : 'Extract document text'}
                                 </div>
                               </div>
 
                               {/* Step 3: Entity Extraction */}
-                              <div
-                                className={`p-2.5 rounded border flex flex-col justify-between ${
-                                  pState.stepStatus.entities === 'completed'
-                                    ? 'bg-slate-800/80 border-emerald-500/40'
-                                    : pState.stepStatus.entities === 'running'
-                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
-                                    : pState.stepStatus.entities === 'failed'
-                                    ? 'bg-red-950/40 border-red-500/70'
-                                    : 'bg-slate-900/60 border-slate-800'
-                                }`}
-                              >
+                              <div className={`p-2.5 rounded border flex flex-col justify-between ${getStageClasses(pState.stepStatus.entities)}`}>
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-mono text-slate-400">STAGE 3</span>
-                                  {pState.stepStatus.entities === 'completed' ? (
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                  ) : pState.stepStatus.entities === 'running' ? (
-                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
-                                  ) : pState.stepStatus.entities === 'failed' ? (
-                                    <AlertCircle className="w-4 h-4 text-red-400" />
-                                  ) : (
-                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
-                                  )}
+                                  <span className="text-[10px] font-mono text-warm-gray">STAGE 3</span>
+                                  {getStageIcon(pState.stepStatus.entities)}
                                 </div>
-                                <div className="font-semibold text-slate-200">
+                                <div className="font-semibold text-charcoal">
                                   {pState.stepStatus.entities === 'completed'
                                     ? '✓ Entities Extracted'
                                     : '○ Entity Extraction'}
                                 </div>
-                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                <div className="text-[10px] text-warm-gray mt-0.5">
                                   {(() => {
                                     const total = pState.stepCounts.entitiesTotal ?? pState.summary?.entitiesTotal;
                                     const saved = pState.stepCounts.entitiesSaved ?? pState.summary?.entitiesSaved;
@@ -1118,35 +1098,17 @@ export default function DocumentUploadPanel({
                               </div>
 
                               {/* Step 4: Relationship Discovery */}
-                              <div
-                                className={`p-2.5 rounded border flex flex-col justify-between ${
-                                  pState.stepStatus.relationships === 'completed'
-                                    ? 'bg-slate-800/80 border-emerald-500/40'
-                                    : pState.stepStatus.relationships === 'running'
-                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
-                                    : pState.stepStatus.relationships === 'failed'
-                                    ? 'bg-red-950/40 border-red-500/70'
-                                    : 'bg-slate-900/60 border-slate-800'
-                                }`}
-                              >
+                              <div className={`p-2.5 rounded border flex flex-col justify-between ${getStageClasses(pState.stepStatus.relationships)}`}>
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-mono text-slate-400">STAGE 4</span>
-                                  {pState.stepStatus.relationships === 'completed' ? (
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                  ) : pState.stepStatus.relationships === 'running' ? (
-                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
-                                  ) : pState.stepStatus.relationships === 'failed' ? (
-                                    <AlertCircle className="w-4 h-4 text-red-400" />
-                                  ) : (
-                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
-                                  )}
+                                  <span className="text-[10px] font-mono text-warm-gray">STAGE 4</span>
+                                  {getStageIcon(pState.stepStatus.relationships)}
                                 </div>
-                                <div className="font-semibold text-slate-200">
+                                <div className="font-semibold text-charcoal">
                                   {pState.stepStatus.relationships === 'completed'
                                     ? '✓ Relationships Discovered'
                                     : '○ Relationship Discovery'}
                                 </div>
-                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                <div className="text-[10px] text-warm-gray mt-0.5">
                                   {(() => {
                                     const total = pState.stepCounts.relationshipsTotal ?? pState.summary?.relationshipsTotal;
                                     const saved = pState.stepCounts.relationshipsSaved ?? pState.summary?.relationshipsSaved;
@@ -1159,82 +1121,46 @@ export default function DocumentUploadPanel({
                               </div>
 
                               {/* Step 5: Graph Intelligence */}
-                              <div
-                                className={`p-2.5 rounded border flex flex-col justify-between ${
-                                  pState.stepStatus.graph === 'completed'
-                                    ? 'bg-slate-800/80 border-emerald-500/40'
-                                    : pState.stepStatus.graph === 'running'
-                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
-                                    : pState.stepStatus.graph === 'failed'
-                                    ? 'bg-red-950/40 border-red-500/70'
-                                    : 'bg-slate-900/60 border-slate-800'
-                                }`}
-                              >
+                              <div className={`p-2.5 rounded border flex flex-col justify-between ${getStageClasses(pState.stepStatus.graph)}`}>
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-mono text-slate-400">STAGE 5</span>
-                                  {pState.stepStatus.graph === 'completed' ? (
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                  ) : pState.stepStatus.graph === 'running' ? (
-                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
-                                  ) : pState.stepStatus.graph === 'failed' ? (
-                                    <AlertCircle className="w-4 h-4 text-red-400" />
-                                  ) : (
-                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
-                                  )}
+                                  <span className="text-[10px] font-mono text-warm-gray">STAGE 5</span>
+                                  {getStageIcon(pState.stepStatus.graph)}
                                 </div>
-                                <div className="font-semibold text-slate-200">
+                                <div className="font-semibold text-charcoal">
                                   {pState.stepStatus.graph === 'completed'
                                     ? '✓ Graph Updated'
                                     : '○ Investigation Graph'}
                                 </div>
-                                <div className="text-[10px] text-slate-400 mt-0.5">Cytoscape visualization</div>
+                                <div className="text-[10px] text-warm-gray mt-0.5">Cytoscape visualization</div>
                               </div>
 
                               {/* Step 6: Next-Best Actions */}
-                              <div
-                                className={`p-2.5 rounded border flex flex-col justify-between ${
-                                  pState.stepStatus.nba === 'completed'
-                                    ? 'bg-slate-800/80 border-emerald-500/40'
-                                    : pState.stepStatus.nba === 'running'
-                                    ? 'bg-blue-950/40 border-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
-                                    : pState.stepStatus.nba === 'failed'
-                                    ? 'bg-red-950/40 border-red-500/70'
-                                    : 'bg-slate-900/60 border-slate-800'
-                                }`}
-                              >
+                              <div className={`p-2.5 rounded border flex flex-col justify-between ${getStageClasses(pState.stepStatus.nba)}`}>
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-mono text-slate-400">STAGE 6</span>
-                                  {pState.stepStatus.nba === 'completed' ? (
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                  ) : pState.stepStatus.nba === 'running' ? (
-                                    <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
-                                  ) : pState.stepStatus.nba === 'failed' ? (
-                                    <AlertCircle className="w-4 h-4 text-red-400" />
-                                  ) : (
-                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600"></span>
-                                  )}
+                                  <span className="text-[10px] font-mono text-warm-gray">STAGE 6</span>
+                                  {getStageIcon(pState.stepStatus.nba)}
                                 </div>
-                                <div className="font-semibold text-slate-200">
+                                <div className="font-semibold text-charcoal">
                                   {pState.stepStatus.nba === 'completed'
                                     ? '✓ Recommendations Ready'
                                     : '○ Next-Best Actions'}
                                 </div>
-                                <div className="text-[10px] text-slate-400 mt-0.5">Ranked recommendations</div>
+                                <div className="text-[10px] text-warm-gray mt-0.5">Ranked recommendations</div>
                               </div>
                             </div>
                           </div>
 
                           {/* Error State Banner with Stage-Specific Retry Action */}
                           {pState.error && (
-                            <div className="p-3 rounded bg-red-950/60 border border-red-800/80 text-red-200 flex flex-wrap items-center justify-between gap-3 shadow-md">
+                            <div className="p-3 rounded bg-semantic-red-light border border-red-200 text-semantic-red flex flex-wrap items-center justify-between gap-3">
                               <div className="flex items-start gap-2 max-w-xl">
-                                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                                <AlertTriangle className="w-5 h-5 text-semantic-red shrink-0 mt-0.5" />
                                 <div>
-                                  <div className="font-semibold text-red-300">
-                                    ⚠ Pipeline Error at Stage [{pState.error.step.toUpperCase()}]
+                                  <div className="font-semibold text-semantic-red">
+                                    Pipeline Error at Stage [{pState.error.step.toUpperCase()}]
                                   </div>
-                                  <div className="text-xs text-red-200/90 mt-0.5">{pState.error.message}</div>
-                                  <div className="text-[11px] text-slate-400 mt-1">
+                                  <div className="text-xs text-red-700 mt-0.5">{pState.error.message}</div>
+                                  <div className="text-[11px] text-warm-gray mt-1">
                                     Completed stages remain saved in PostgreSQL. You can retry from the failed step.
                                   </div>
                                 </div>
@@ -1242,7 +1168,7 @@ export default function DocumentUploadPanel({
 
                               <button
                                 onClick={() => runFullPipeline(doc)}
-                                className="px-3 py-1.5 rounded bg-red-800 hover:bg-red-700 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                                className="px-3 py-1.5 rounded bg-semantic-red hover:bg-red-800 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
                               >
                                 <RotateCcw className="w-3.5 h-3.5" />
                                 <span>Retry Intelligence Pipeline</span>
@@ -1251,8 +1177,8 @@ export default function DocumentUploadPanel({
                           )}
 
                           {/* Controlled Individual Pipeline Stage Actions */}
-                          <div className="pt-2 border-t border-slate-800">
-                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                          <div className="pt-2 border-t border-border">
+                            <div className="text-[11px] font-semibold text-warm-gray uppercase tracking-wider mb-2">
                               Controlled Stage Actions
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
@@ -1260,9 +1186,9 @@ export default function DocumentUploadPanel({
                               <button
                                 onClick={() => runStepProcess(doc)}
                                 disabled={pState.running}
-                                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
+                                className="px-3 py-1.5 rounded bg-warm-white hover:bg-cream text-charcoal font-medium text-xs border border-border flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
                               >
-                                <FileText className="w-3.5 h-3.5 text-blue-400" />
+                                <FileText className="w-3.5 h-3.5 text-accent-blue" />
                                 <span>1. Process Text</span>
                               </button>
 
@@ -1275,9 +1201,9 @@ export default function DocumentUploadPanel({
                                     ? 'Process evidence document first'
                                     : 'Extract Person, Phone, Location, Vehicle, and Event entities'
                                 }
-                                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
+                                className="px-3 py-1.5 rounded bg-warm-white hover:bg-cream text-charcoal font-medium text-xs border border-border flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
                               >
-                                <Cpu className="w-3.5 h-3.5 text-amber-400" />
+                                <Cpu className="w-3.5 h-3.5 text-semantic-amber" />
                                 <span>2. Extract Entities</span>
                               </button>
 
@@ -1286,9 +1212,9 @@ export default function DocumentUploadPanel({
                                 onClick={() => runStepRelationships(doc)}
                                 disabled={pState.running || doc.processing_status !== 'COMPLETED'}
                                 title="Discover evidence links between extracted entities"
-                                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
+                                className="px-3 py-1.5 rounded bg-warm-white hover:bg-cream text-charcoal font-medium text-xs border border-border flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
                               >
-                                <GitFork className="w-3.5 h-3.5 text-emerald-400" />
+                                <GitFork className="w-3.5 h-3.5 text-semantic-green" />
                                 <span>3. Discover Relationships</span>
                               </button>
 
@@ -1296,9 +1222,9 @@ export default function DocumentUploadPanel({
                               <button
                                 onClick={runStepRefreshIntelligence}
                                 disabled={pState.running}
-                                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 flex items-center gap-1.5 cursor-pointer transition-colors"
+                                className="px-3 py-1.5 rounded bg-warm-white hover:bg-cream text-charcoal font-medium text-xs border border-border flex items-center gap-1.5 cursor-pointer transition-colors"
                               >
-                                <Network className="w-3.5 h-3.5 text-purple-400" />
+                                <Network className="w-3.5 h-3.5 text-purple-600" />
                                 <span>4. Refresh Graph & NBA</span>
                               </button>
                             </div>
@@ -1306,71 +1232,71 @@ export default function DocumentUploadPanel({
 
                           {/* Pipeline Result Summary Card */}
                           {pState.summary && (
-                            <div className="p-3.5 rounded bg-gradient-to-r from-blue-950/50 via-indigo-950/40 to-slate-900 border border-blue-500/40 space-y-2 shadow-lg">
-                              <div className="flex items-center justify-between border-b border-blue-800/40 pb-2">
+                            <div className="p-3.5 rounded bg-warm-white border border-border-strong space-y-2">
+                              <div className="flex items-center justify-between border-b border-border pb-2">
                                 <div className="flex items-center gap-2">
-                                  <Sparkles className="w-4 h-4 text-blue-400" />
-                                  <span className="font-semibold text-slate-100 uppercase tracking-wider text-xs">
-                                    INTELLIGENCE GENERATED SUMMARY
+                                  <Sparkles className="w-4 h-4 text-accent-red" />
+                                  <span className="font-semibold text-charcoal uppercase tracking-wider text-xs">
+                                    Intelligence Generated Summary
                                   </span>
                                 </div>
-                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-semantic-green-light text-semantic-green border border-green-200">
                                   PIPELINE SUCCESSFUL
                                 </span>
                               </div>
 
                               {pState.summary.entitiesSaved === 0 && pState.summary.relationshipsSaved === 0 && (
-                                <div className="text-[11px] text-sky-300 bg-sky-950/40 border border-sky-800/50 rounded px-2.5 py-1 flex items-center gap-1.5 font-medium">
-                                  <Info className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                <div className="text-[11px] text-accent-blue bg-accent-blue-light border border-blue-200 rounded px-2.5 py-1 flex items-center gap-1.5 font-medium">
+                                  <Info className="w-3.5 h-3.5 text-accent-blue shrink-0" />
                                   <span>ℹ Existing intelligence reused — no duplicate records were added.</span>
                                 </div>
                               )}
 
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center pt-1">
-                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
-                                  <div className="text-[10px] text-slate-400 uppercase">New Entities Saved</div>
-                                  <div className="text-base font-bold text-amber-400">
+                                <div className="p-2 rounded bg-cream border border-border">
+                                  <div className="text-[10px] text-warm-gray uppercase">New Entities Saved</div>
+                                  <div className="text-base font-bold text-semantic-amber">
                                     {pState.summary.entitiesSaved}
                                   </div>
-                                  <div className="text-[9px] text-slate-500 font-mono">
+                                  <div className="text-[9px] text-muted-gray font-mono">
                                     Entities Found: {pState.summary.entitiesTotal}
                                   </div>
                                 </div>
 
-                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
-                                  <div className="text-[10px] text-slate-400 uppercase">New Relationships Saved</div>
-                                  <div className="text-base font-bold text-emerald-400">
+                                <div className="p-2 rounded bg-cream border border-border">
+                                  <div className="text-[10px] text-warm-gray uppercase">New Relationships Saved</div>
+                                  <div className="text-base font-bold text-semantic-green">
                                     {pState.summary.relationshipsSaved}
                                   </div>
-                                  <div className="text-[9px] text-slate-500 font-mono">
+                                  <div className="text-[9px] text-muted-gray font-mono">
                                     Relationships Found: {pState.summary.relationshipsTotal}
                                   </div>
                                 </div>
 
-                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
-                                  <div className="text-[10px] text-slate-400 uppercase">Network Nodes</div>
-                                  <div className="text-base font-bold text-blue-400">
+                                <div className="p-2 rounded bg-cream border border-border">
+                                  <div className="text-[10px] text-warm-gray uppercase">Network Nodes</div>
+                                  <div className="text-base font-bold text-accent-blue">
                                     {pState.summary.graphNodes}
                                   </div>
                                 </div>
 
-                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
-                                  <div className="text-[10px] text-slate-400 uppercase">Connections</div>
-                                  <div className="text-base font-bold text-indigo-400">
+                                <div className="p-2 rounded bg-cream border border-border">
+                                  <div className="text-[10px] text-warm-gray uppercase">Connections</div>
+                                  <div className="text-base font-bold text-accent-blue">
                                     {pState.summary.graphEdges}
                                   </div>
                                 </div>
 
-                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
-                                  <div className="text-[10px] text-slate-400 uppercase">Components</div>
-                                  <div className="text-base font-bold text-purple-400">
+                                <div className="p-2 rounded bg-cream border border-border">
+                                  <div className="text-[10px] text-warm-gray uppercase">Components</div>
+                                  <div className="text-base font-bold text-purple-700">
                                     {pState.summary.graphComponents}
                                   </div>
                                 </div>
 
-                                <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
-                                  <div className="text-[10px] text-slate-400 uppercase">Recommendations</div>
-                                  <div className="text-base font-bold text-rose-400">
+                                <div className="p-2 rounded bg-cream border border-border">
+                                  <div className="text-[10px] text-warm-gray uppercase">Recommendations</div>
+                                  <div className="text-base font-bold text-accent-red">
                                     {pState.summary.recommendationsTotal}
                                   </div>
                                 </div>

@@ -143,7 +143,7 @@ export default function App() {
   }, [loadInvestigationsList]);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-ivory text-charcoal">
       <Header backendStatus={backendStatus} />
 
       {/* Investigation Selector Sub-header */}

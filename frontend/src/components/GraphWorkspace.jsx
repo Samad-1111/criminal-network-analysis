@@ -275,34 +275,34 @@ export default function GraphWorkspace({
   const metrics = graphData?.metrics || {};
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-950 min-w-0 h-full relative select-none">
+    <div className="flex-1 flex flex-col bg-ivory min-w-0 h-full relative select-none">
 
       {/* =========================
           TOP WORKSPACE HEADER
       ========================= */}
-      <div className="h-10 px-4 border-b border-slate-800/80 bg-slate-900/60 flex items-center justify-between shrink-0 z-10">
+      <div className="h-10 px-4 border-b border-border bg-cream flex items-center justify-between shrink-0 z-10">
 
-        <div className="flex items-center gap-2 text-xs text-slate-300 font-medium min-w-0">
-          <Network className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+        <div className="flex items-center gap-2 text-xs text-warm-gray font-medium min-w-0">
+          <Network className="w-3.5 h-3.5 text-accent-red shrink-0" />
 
           {activeInvestigation ? (
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700/60 font-mono shrink-0">
-              LIVE INVESTIGATION GRAPH
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-semantic-green-light text-semantic-green border border-green-200 font-mono shrink-0 uppercase tracking-wider">
+              Live Investigation
             </span>
           ) : (
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-400 border border-amber-800/60 font-mono shrink-0">
-              DEMO MODE
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-semantic-amber-light text-semantic-amber border border-amber-200 font-mono shrink-0 uppercase tracking-wider">
+              Demo Mode
             </span>
           )}
 
           {activeInvestigation && (
-            <span className="text-slate-300 font-mono text-xs truncate max-w-[180px]">
+            <span className="text-charcoal font-mono text-xs truncate max-w-[180px]">
               {activeInvestigation.case_number}
             </span>
           )}
 
           {!loading && !error && nodeCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] font-mono border border-slate-700 shrink-0">
+            <span className="ml-1 px-1.5 py-0.5 rounded bg-warm-white text-warm-gray text-[10px] font-mono border border-border shrink-0">
               {nodeCount} Nodes · {edgeCount} Edges
               {metrics.total_components !== undefined && ` · ${metrics.total_components} Components`}
             </span>
@@ -320,20 +320,20 @@ export default function GraphWorkspace({
             type="button"
             onClick={onRefreshGraph}
             disabled={loading || !activeInvestigation}
-            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 rounded border border-slate-700/80 disabled:opacity-40 disabled:hover:bg-slate-800/80 cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-warm-gray hover:text-charcoal bg-warm-white hover:bg-parchment rounded border border-border disabled:opacity-40 disabled:hover:bg-warm-white cursor-pointer transition-colors"
             title={activeInvestigation ? "Refresh Live Investigation Graph" : "Select an investigation to enable graph refresh"}
           >
-            <RefreshCw className={`w-3 h-3 text-blue-400 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3 h-3 text-accent-blue ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh Graph</span>
           </button>
 
-          <div className="h-4 w-px bg-slate-800 mx-1"></div>
+          <div className="h-4 w-px bg-border mx-1"></div>
 
           <button
             type="button"
             onClick={handleZoomIn}
             disabled={loading || !!error || nodeCount === 0}
-            className="p-1.5 text-slate-400 hover:text-slate-200 rounded hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+            className="p-1.5 text-warm-gray hover:text-charcoal rounded hover:bg-parchment disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
             title="Zoom In"
           >
             <ZoomIn className="w-3.5 h-3.5" />
@@ -343,7 +343,7 @@ export default function GraphWorkspace({
             type="button"
             onClick={handleZoomOut}
             disabled={loading || !!error || nodeCount === 0}
-            className="p-1.5 text-slate-400 hover:text-slate-200 rounded hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+            className="p-1.5 text-warm-gray hover:text-charcoal rounded hover:bg-parchment disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
             title="Zoom Out"
           >
             <ZoomOut className="w-3.5 h-3.5" />
@@ -353,7 +353,7 @@ export default function GraphWorkspace({
             type="button"
             onClick={handleFit}
             disabled={loading || !!error || nodeCount === 0}
-            className="p-1.5 text-slate-400 hover:text-slate-200 rounded hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+            className="p-1.5 text-warm-gray hover:text-charcoal rounded hover:bg-parchment disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
             title="Fit to Screen"
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -363,7 +363,7 @@ export default function GraphWorkspace({
             type="button"
             onClick={handleResetLayout}
             disabled={loading || !!error || nodeCount === 0}
-            className="p-1.5 text-slate-400 hover:text-slate-200 rounded hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+            className="p-1.5 text-warm-gray hover:text-charcoal rounded hover:bg-parchment disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
             title="Reset Concentric Layout"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -377,18 +377,18 @@ export default function GraphWorkspace({
       {/* =========================
           MAIN GRAPH AREA
       ========================= */}
-      <div className="flex-1 relative flex items-center justify-center bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]">
+      <div className="flex-1 relative flex items-center justify-center bg-[radial-gradient(#D6D3D1_1px,transparent_1px)] [background-size:24px_24px]">
 
         {/* LOADING STATE */}
         {loading && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm">
-            <Loader2 className="w-7 h-7 text-blue-500 animate-spin mb-3" />
-            <p className="text-sm font-medium text-slate-200">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-ivory/80 backdrop-blur-sm">
+            <div className="w-8 h-8 border-2 border-border-strong border-t-accent-red rounded-full animate-spin mb-3"></div>
+            <p className="text-sm font-medium text-charcoal">
               {activeInvestigation
                 ? 'Loading investigation intelligence graph...'
                 : 'Building criminal network graph...'}
             </p>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-warm-gray mt-1">
               Analyzing entities and computing network centrality
             </p>
           </div>
@@ -396,21 +396,21 @@ export default function GraphWorkspace({
 
         {/* ERROR STATE */}
         {!loading && error && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-slate-950/90 text-center">
-            <div className="w-12 h-12 rounded-lg bg-red-950/50 border border-red-800/60 flex items-center justify-center text-red-400 mb-3 shadow-sm">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-ivory/90 text-center">
+            <div className="w-12 h-12 rounded-lg bg-semantic-red-light border border-red-200 flex items-center justify-center text-semantic-red mb-3">
               <AlertTriangle className="w-6 h-6 stroke-[1.5]" />
             </div>
-            <h3 className="text-sm font-semibold text-slate-200">
+            <h3 className="text-sm font-semibold text-charcoal">
               Failed to load network graph
             </h3>
-            <p className="text-xs text-slate-400 max-w-sm mt-1 mb-4 font-mono bg-slate-900 px-3 py-1.5 rounded border border-slate-800">
+            <p className="text-xs text-warm-gray max-w-sm mt-1 mb-4 font-mono bg-cream px-3 py-1.5 rounded border border-border">
               {error}
             </p>
             {onRetry && (
               <button
                 type="button"
                 onClick={onRetry}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium cursor-pointer transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent-red hover:bg-red-800 text-white text-xs font-medium cursor-pointer transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Retry Connection</span>
@@ -421,21 +421,21 @@ export default function GraphWorkspace({
 
         {/* EMPTY STATE */}
         {!loading && !error && nodeCount === 0 && (
-          <div className="text-center max-w-md p-6 bg-slate-900/60 border border-slate-800 rounded-xl shadow-xl">
-            <div className="w-12 h-12 rounded-lg bg-slate-800 border border-slate-700 mx-auto flex items-center justify-center text-slate-400 mb-3 shadow-sm">
+          <div className="text-center max-w-md p-6 bg-warm-white border border-border rounded-lg">
+            <div className="w-12 h-12 rounded-lg bg-cream border border-border mx-auto flex items-center justify-center text-warm-gray mb-3">
               <Info className="w-6 h-6 stroke-[1.5]" />
             </div>
-            <h3 className="text-sm font-semibold text-slate-200">
+            <h3 className="text-sm font-semibold text-charcoal">
               No intelligence graph available yet.
             </h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+            <p className="text-xs text-warm-gray mt-2 leading-relaxed">
               Upload and process evidence, then extract entities and relationships to build the investigation network.
             </p>
             {activeInvestigation && onRefreshGraph && (
               <button
                 type="button"
                 onClick={onRefreshGraph}
-                className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium cursor-pointer transition-colors shadow-sm"
+                className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent-red hover:bg-red-800 text-white text-xs font-medium cursor-pointer transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Check for Updated Graph</span>
@@ -452,24 +452,24 @@ export default function GraphWorkspace({
 
         {/* FLOATING DETAIL INSPECTOR PANEL (On Node or Edge click) */}
         {!loading && !error && selectedDetail && (
-          <div className="absolute bottom-4 left-4 z-20 max-w-sm w-full bg-slate-900/95 border border-slate-700/80 rounded-lg p-3 shadow-2xl backdrop-blur-md text-xs text-slate-200 space-y-2 animate-in fade-in slide-in-from-bottom-2">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <div className="flex items-center gap-2 font-semibold text-slate-100">
+          <div className="absolute bottom-4 left-4 z-20 max-w-sm w-full bg-warm-white border border-border-strong rounded-lg p-3 shadow-lg text-xs text-charcoal space-y-2">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <div className="flex items-center gap-2 font-semibold text-charcoal">
                 {selectedDetail.type === 'node' ? (
                   <>
-                    <ShieldAlert className="w-4 h-4 text-blue-400" />
+                    <ShieldAlert className="w-4 h-4 text-accent-red" />
                     <span>Entity Intelligence</span>
                   </>
                 ) : (
                   <>
-                    <FileText className="w-4 h-4 text-emerald-400" />
+                    <FileText className="w-4 h-4 text-semantic-green" />
                     <span>Relationship Evidence</span>
                   </>
                 )}
               </div>
               <button
                 onClick={() => setSelectedDetail(null)}
-                className="text-slate-400 hover:text-slate-200 p-0.5 rounded hover:bg-slate-800"
+                className="text-warm-gray hover:text-charcoal p-0.5 rounded hover:bg-cream"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -478,27 +478,27 @@ export default function GraphWorkspace({
             {selectedDetail.type === 'node' && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-white">{selectedDetail.data.label}</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950 text-blue-300 border border-blue-800 uppercase font-mono">
+                  <span className="font-bold text-sm text-charcoal">{selectedDetail.data.label}</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-accent-blue-light text-accent-blue border border-blue-200 uppercase font-mono">
                     {selectedDetail.data.entity_type}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-950/60 p-2 rounded border border-slate-800">
+                <div className="grid grid-cols-2 gap-2 text-[11px] bg-cream p-2 rounded border border-border">
                   <div>
-                    <div className="text-slate-500 font-medium">Confidence</div>
-                    <div className="font-mono text-emerald-400 font-semibold">
+                    <div className="text-warm-gray font-medium">Confidence</div>
+                    <div className="font-mono text-semantic-green font-semibold">
                       {Math.round((selectedDetail.data.confidence || 1.0) * 100)}%
                     </div>
                   </div>
                   <div>
-                    <div className="text-slate-500 font-medium">Degree Centrality</div>
-                    <div className="font-mono text-slate-200">
+                    <div className="text-warm-gray font-medium">Degree Centrality</div>
+                    <div className="font-mono text-charcoal">
                       {selectedDetail.data.degree_centrality ?? 0}
                     </div>
                   </div>
                   <div className="col-span-2">
-                    <div className="text-slate-500 font-medium">Betweenness Centrality</div>
-                    <div className="font-mono text-slate-200">
+                    <div className="text-warm-gray font-medium">Betweenness Centrality</div>
+                    <div className="font-mono text-charcoal">
                       {selectedDetail.data.betweenness_centrality ?? 0}
                     </div>
                   </div>
@@ -509,24 +509,24 @@ export default function GraphWorkspace({
             {selectedDetail.type === 'edge' && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 uppercase font-mono">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-semantic-green-light text-semantic-green border border-green-200 uppercase font-mono">
                     {selectedDetail.data.relationship_type}
                   </span>
-                  <span className="font-mono text-emerald-400 text-[11px] font-semibold">
+                  <span className="font-mono text-semantic-green text-[11px] font-semibold">
                     Confidence: {Math.round((selectedDetail.data.confidence || 1.0) * 100)}%
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between bg-slate-950/60 p-2 rounded border border-slate-800 text-[11px] font-medium text-slate-200">
+                <div className="flex items-center justify-between bg-cream p-2 rounded border border-border text-[11px] font-medium text-charcoal">
                   <span className="truncate max-w-[120px] font-semibold">{selectedDetail.data.sourceLabel || 'Source Entity'}</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <ArrowRight className="w-3.5 h-3.5 text-warm-gray shrink-0" />
                   <span className="truncate max-w-[120px] font-semibold">{selectedDetail.data.targetLabel || 'Target Entity'}</span>
                 </div>
 
                 {selectedDetail.data.source_document_id && (
-                  <div className="bg-slate-950/60 p-2 rounded border border-slate-800 text-[10px] space-y-0.5">
-                    <div className="text-slate-500 font-medium">Evidence Source Document</div>
-                    <div className="font-mono text-blue-300 text-[10px] truncate">
+                  <div className="bg-cream p-2 rounded border border-border text-[10px] space-y-0.5">
+                    <div className="text-warm-gray font-medium">Evidence Source Document</div>
+                    <div className="font-mono text-accent-blue text-[10px] truncate">
                       {selectedDetail.data.source_document_id}
                     </div>
                   </div>

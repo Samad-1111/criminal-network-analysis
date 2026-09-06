@@ -6,45 +6,42 @@ export default function Header({ backendStatus = 'connected' }) {
     switch (backendStatus) {
       case 'connected':
         return (
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700/60 text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-            <span className="text-slate-300 font-medium">Backend Ready</span>
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-semantic-green-light border border-green-200 text-xs">
+            <span className="w-2 h-2 rounded-full bg-semantic-green"></span>
+            <span className="text-semantic-green font-medium">Backend Online</span>
           </div>
         );
       case 'loading':
         return (
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700/60 text-xs">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
-            <span className="text-slate-300 font-medium">Connecting...</span>
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-semantic-amber-light border border-amber-200 text-xs">
+            <span className="w-2 h-2 rounded-full bg-semantic-amber animate-pulse"></span>
+            <span className="text-semantic-amber font-medium">Connecting...</span>
           </div>
         );
       case 'error':
       default:
         return (
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-red-950/40 border border-red-800/50 text-xs">
-            <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>
-            <span className="text-red-300 font-medium">Backend Offline</span>
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-semantic-red-light border border-red-200 text-xs">
+            <span className="w-2 h-2 rounded-full bg-semantic-red"></span>
+            <span className="text-semantic-red font-medium">Backend Offline</span>
           </div>
         );
     }
   };
 
   return (
-    <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0 z-30">
+    <header className="h-14 bg-warm-white border-b border-border px-5 flex items-center justify-between shrink-0 z-30">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+        <div className="w-8 h-8 rounded bg-accent-red-light border border-red-200 flex items-center justify-center text-accent-red">
           <Shield className="w-4 h-4" />
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-semibold text-slate-100 tracking-tight">
+            <h1 className="text-sm font-semibold text-charcoal tracking-tight" style={{ fontFamily: 'var(--font-serif)' }}>
               Criminal Network Analysis
             </h1>
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-              v1.0
-            </span>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-warm-gray">
             Investigation Intelligence & Next-Best-Action System
           </p>
         </div>

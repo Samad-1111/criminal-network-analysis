@@ -8,12 +8,12 @@
 // ============================================================
 
 export const ENTITY_COLORS = {
-  Person: '#3b82f6',
-  Phone: '#10b981',
-  Location: '#8b5cf6',
-  Vehicle: '#f59e0b',
-  Event: '#ef4444',
-  Entity: '#64748b',
+  Person: '#2563EB',
+  Phone: '#059669',
+  Location: '#7C3AED',
+  Vehicle: '#D97706',
+  Event: '#DC2626',
+  Entity: '#57534E',
 };
 
 
@@ -106,8 +106,8 @@ export function convertToCytoscapeElements(graphData) {
         borderWidth: isMajorConnector ? 4 : 2,
 
         borderColor: isMajorConnector
-          ? '#60a5fa'
-          : '#334155',
+          ? '#1E40AF'
+          : '#A8A29E',
       },
     };
   });
@@ -173,7 +173,7 @@ export function convertToCytoscapeElements(graphData) {
 
 
 // ============================================================
-// CYTOSCAPE STYLESHEET
+// CYTOSCAPE STYLESHEET — LIGHT INVESTIGATION CANVAS
 // ============================================================
 
 export const CYTOSCAPE_STYLESHEET = [
@@ -194,7 +194,7 @@ export const CYTOSCAPE_STYLESHEET = [
 
       'background-color': 'data(color)',
 
-      'background-opacity': 0.9,
+      'background-opacity': 0.85,
 
       'border-width': 'data(borderWidth)',
 
@@ -204,7 +204,7 @@ export const CYTOSCAPE_STYLESHEET = [
 
       label: 'data(label)',
 
-      color: '#f8fafc',
+      color: '#1C1917',
 
       'font-family': 'Inter, sans-serif',
 
@@ -216,9 +216,9 @@ export const CYTOSCAPE_STYLESHEET = [
 
       'text-margin-y': 8,
 
-      'text-background-color': '#090d16',
+      'text-background-color': '#FAF8F5',
 
-      'text-background-opacity': 0.9,
+      'text-background-opacity': 0.92,
 
       'text-background-padding': '3px',
 
@@ -228,7 +228,7 @@ export const CYTOSCAPE_STYLESHEET = [
        * Cytoscape uses text-outline,
        * not text-border.
        */
-      'text-outline-color': '#090d16',
+      'text-outline-color': '#FAF8F5',
 
       'text-outline-width': 1,
 
@@ -254,15 +254,17 @@ export const CYTOSCAPE_STYLESHEET = [
     selector: 'node:selected',
 
     style: {
-      'border-color': '#38bdf8',
+      'border-color': '#1E40AF',
 
       'border-width': 4,
 
       'background-opacity': 1,
 
-      'text-outline-color': '#38bdf8',
+      'text-outline-color': '#1E40AF',
 
       'text-outline-width': 2,
+
+      color: '#FFFFFF',
     },
   },
 
@@ -275,19 +277,19 @@ export const CYTOSCAPE_STYLESHEET = [
     selector: 'edge',
 
     style: {
-      width: 2,
+      width: 1.5,
 
-      'line-color': '#475569',
+      'line-color': '#A8A29E',
 
-      'line-opacity': 0.8,
+      'line-opacity': 0.6,
 
       'curve-style': 'bezier',
 
       'target-arrow-shape': 'triangle',
 
-      'target-arrow-color': '#64748b',
+      'target-arrow-color': '#A8A29E',
 
-      'arrow-scale': 0.9,
+      'arrow-scale': 0.8,
 
       label: 'data(label)',
 
@@ -297,21 +299,21 @@ export const CYTOSCAPE_STYLESHEET = [
 
       'font-weight': 500,
 
-      color: '#94a3b8',
+      color: '#78716C',
 
       'text-rotation': 'autorotate',
 
       'text-margin-y': -6,
 
-      'text-background-color': '#020617',
+      'text-background-color': '#FAF8F5',
 
-      'text-background-opacity': 0.9,
+      'text-background-opacity': 0.92,
 
       'text-background-padding': '2px',
 
       'text-background-shape': 'roundrectangle',
 
-      'text-outline-color': '#020617',
+      'text-outline-color': '#FAF8F5',
 
       'text-outline-width': 1,
 
@@ -331,13 +333,13 @@ export const CYTOSCAPE_STYLESHEET = [
     selector: 'edge:selected',
 
     style: {
-      width: 3,
+      width: 2.5,
 
-      'line-color': '#38bdf8',
+      'line-color': '#1E40AF',
 
-      'target-arrow-color': '#38bdf8',
+      'target-arrow-color': '#1E40AF',
 
-      color: '#f8fafc',
+      color: '#1C1917',
     },
   },
 
@@ -364,11 +366,11 @@ export const CYTOSCAPE_STYLESHEET = [
       'background-opacity': 1,
 
       /*
-       * Strong orange ring.
+       * Strong muted-red ring for investigation emphasis.
        */
-      'border-color': '#f97316',
+      'border-color': '#991B1B',
 
-      'border-width': 7,
+      'border-width': 6,
 
       /*
        * Fixed size boost for the highlighted node.
@@ -389,17 +391,19 @@ export const CYTOSCAPE_STYLESHEET = [
       /*
        * Strong label emphasis.
        */
-      color: '#ffffff',
+      color: '#1C1917',
 
       'font-size': '13px',
 
       'font-weight': 700,
 
-      'text-outline-color': '#f97316',
+      'text-outline-color': '#FFFFFF',
 
       'text-outline-width': 2,
 
       'text-background-opacity': 1,
+
+      'text-background-color': '#FFFFFF',
     },
   },
 
@@ -419,13 +423,13 @@ export const CYTOSCAPE_STYLESHEET = [
 
       'background-opacity': 1,
 
-      'border-color': '#fb923c',
+      'border-color': '#B91C1C',
 
-      'border-width': 4,
+      'border-width': 3,
 
       'z-index': 100,
 
-      'text-outline-color': '#fb923c',
+      'text-outline-color': '#FFFFFF',
 
       'text-outline-width': 1,
     },
@@ -443,19 +447,19 @@ export const CYTOSCAPE_STYLESHEET = [
     style: {
       opacity: 1,
 
-      width: 4,
+      width: 3,
 
-      'line-color': '#f97316',
+      'line-color': '#991B1B',
 
-      'line-opacity': 1,
+      'line-opacity': 0.9,
 
-      'target-arrow-color': '#f97316',
+      'target-arrow-color': '#991B1B',
 
-      'arrow-scale': 1.1,
+      'arrow-scale': 1.0,
 
-      color: '#fed7aa',
+      color: '#7F1D1D',
 
-      'text-outline-color': '#7c2d12',
+      'text-outline-color': '#FFFFFF',
 
       'text-outline-width': 1,
 
@@ -473,7 +477,7 @@ export const CYTOSCAPE_STYLESHEET = [
     selector: '.nba-dimmed',
 
     style: {
-      opacity: 0.15,
+      opacity: 0.12,
     },
   },
 ];
