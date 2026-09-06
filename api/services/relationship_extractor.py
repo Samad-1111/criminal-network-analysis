@@ -13,7 +13,7 @@ RELATIONSHIP_PATTERNS: List[Tuple[str, re.Pattern, float]] = [
     (
         "CALLED",
         re.compile(
-            r"\b(?:called|dialed|phoned|spoke with|spoke to|incoming call|outgoing call|contacted via phone)\b",
+            r"\b(?:called|dialed|phoned|spoke with|spoke to|incoming call|outgoing call|contacted via phone|call to)\b",
             re.IGNORECASE,
         ),
         0.95,
@@ -29,7 +29,7 @@ RELATIONSHIP_PATTERNS: List[Tuple[str, re.Pattern, float]] = [
     (
         "MET_WITH",
         re.compile(
-            r"\b(?:met with|encountered|seen with|spotted with|conferred with|meeting with| rendezvous)\b",
+            r"\b(?:met with|encountered|seen with|spotted with|conferred with|meeting with|rendezvous|gathered with|spotted together)\b",
             re.IGNORECASE,
         ),
         0.90,
@@ -37,7 +37,7 @@ RELATIONSHIP_PATTERNS: List[Tuple[str, re.Pattern, float]] = [
     (
         "TRANSFERRED_MONEY_TO",
         re.compile(
-            r"\b(?:transferred|paid|sent money|wired|remitted|bribed|paid sum)\b",
+            r"\b(?:transferred|paid|sent money|wired|remitted|bribed|paid sum|sent rs|paid rs|transferred rs|sent \$|paid \$)\b",
             re.IGNORECASE,
         ),
         0.95,
@@ -45,7 +45,7 @@ RELATIONSHIP_PATTERNS: List[Tuple[str, re.Pattern, float]] = [
     (
         "OWNS",
         re.compile(
-            r"\b(?:owns|owner of|registered owner|proprietor of)\b",
+            r"\b(?:owns|owner of|registered owner|proprietor of|vehicle of|car of|bike of)\b",
             re.IGNORECASE,
         ),
         0.90,
@@ -53,7 +53,7 @@ RELATIONSHIP_PATTERNS: List[Tuple[str, re.Pattern, float]] = [
     (
         "OPERATES",
         re.compile(
-            r"\b(?:drove|driving|travelling in|traveling in|seen driving|fled in|operating)\b",
+            r"\b(?:drove|driving|drives|travelling in|traveling in|seen driving|fled in|operating|operated|was driving|used vehicle|in vehicle)\b",
             re.IGNORECASE,
         ),
         0.88,
@@ -61,7 +61,7 @@ RELATIONSHIP_PATTERNS: List[Tuple[str, re.Pattern, float]] = [
     (
         "TRAVELLED_TO",
         re.compile(
-            r"\b(?:travelled to|traveled to|fled to|went to|headed towards|escaped to)\b",
+            r"\b(?:travelled to|traveled to|fled to|went to|headed towards|escaped to|visited|moved to)\b",
             re.IGNORECASE,
         ),
         0.85,
@@ -85,7 +85,7 @@ RELATIONSHIP_PATTERNS: List[Tuple[str, re.Pattern, float]] = [
     (
         "LOCATED_AT",
         re.compile(
-            r"\b(?:located at|residing at|hiding at|spotted at|found at|seen at|at|in)\b",
+            r"\b(?:located in|located at|residing at|residing in|hiding at|hiding in|spotted at|spotted in|found at|found in|seen at|seen in|at|in|near)\b",
             re.IGNORECASE,
         ),
         0.85,
@@ -93,7 +93,7 @@ RELATIONSHIP_PATTERNS: List[Tuple[str, re.Pattern, float]] = [
     (
         "ASSOCIATED_WITH",
         re.compile(
-            r"\b(?:associate of|accomplice of|working with|gang member|along with|together with|co-accused)\b",
+            r"\b(?:associate of|accomplice of|working with|gang member|along with|together with|co-accused|partner of|associated with|linked to)\b",
             re.IGNORECASE,
         ),
         0.85,
@@ -130,7 +130,8 @@ def extract_relationships_from_document_text(
                 "target_entity_id": UUID/str,
                 "relationship_type": str,
                 "confidence": float,
-                "source_document_id": UUID/str or None
+                "source_document_id": UUID/str or None,
+                "evidence_snippet": str or None
             }, ...
         ]
     """
@@ -148,7 +149,7 @@ def extract_relationships_from_document_text(
         for ent in entities:
             ent_name = ent.get("name", "").strip().lower()
             ent_norm = ent.get("normalized_value", "").strip().lower()
-            
+
             # Check if name or normalized value appears in sentence
             if (ent_name and ent_name in sent_lower) or (ent_norm and ent_norm in sent_lower):
                 present_entities.append(ent)
@@ -180,7 +181,7 @@ def extract_relationships_from_document_text(
                 if not rel_type:
                     continue
 
-                # Normalise edge direction for asymmetric pairs (Person -> Non-Person)
+                # Normalize edge direction for asymmetric pairs (Person -> Non-Person)
                 source_id, target_id = _orient_edge(e1_id, e2_id, type1, type2)
 
                 rel_key = (source_id, target_id, rel_type)
@@ -193,6 +194,7 @@ def extract_relationships_from_document_text(
                         "relationship_type": rel_type,
                         "confidence": round(confidence, 2),
                         "source_document_id": str(source_document_id) if source_document_id else None,
+                        "evidence_snippet": sentence.strip(),
                     }
 
     return list(discovered_key_map.values())
@@ -202,12 +204,10 @@ def _orient_edge(
     e1_id: str, e2_id: str, type1: str, type2: str
 ) -> Tuple[str, str]:
     """Orient directed edges logically (e.g. Person -> Phone, Person -> Vehicle, Person -> Location)."""
-    # If one entity is Person and the other is not, Person is the source
     if type1 == "Person" and type2 != "Person":
         return e1_id, e2_id
     if type2 == "Person" and type1 != "Person":
         return e2_id, e1_id
-    # Default order
     return e1_id, e2_id
 
 
@@ -223,7 +223,6 @@ def _determine_relationship_type(
 
     # 1. Person <-> Phone
     if (type1 == "Person" and type2 == "Phone") or (type2 == "Person" and type1 == "Phone"):
-        # Check explicit calls/messages
         for rel_type, pat, conf in RELATIONSHIP_PATTERNS:
             if pat.search(sentence) and rel_type in ("CALLED", "CONTACTED"):
                 return rel_type, conf
@@ -234,7 +233,7 @@ def _determine_relationship_type(
         for rel_type, pat, conf in RELATIONSHIP_PATTERNS:
             if pat.search(sentence) and rel_type in ("OPERATES", "OWNS"):
                 return rel_type, conf
-        return "ASSOCIATED_WITH", 0.85
+        return "OPERATES", 0.85
 
     # 3. Person <-> Location
     if (type1 == "Person" and type2 == "Location") or (type2 == "Person" and type1 == "Location"):

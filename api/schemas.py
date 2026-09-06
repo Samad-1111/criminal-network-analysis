@@ -90,6 +90,7 @@ class EntityExtractionResponse(BaseModel):
 class RelationshipBase(BaseModel):
     relationship_type: str = Field(..., description="Type of connection (ASSOCIATE_OF, CALLED, OWNS_VEHICLE, LOCATED_AT, etc.)")
     confidence: float = Field(1.0, ge=0.0, le=1.0, description="Confidence score of relationship edge")
+    evidence_snippet: Optional[str] = Field(None, description="Supporting sentence evidence snippet")
 
 
 class RelationshipCreate(RelationshipBase):
@@ -106,6 +107,7 @@ class RelationshipRead(RelationshipBase):
     source_entity_id: uuid.UUID
     target_entity_id: uuid.UUID
     source_document_id: Optional[uuid.UUID] = None
+    evidence_snippet: Optional[str] = None
     created_at: datetime
 
 
@@ -132,6 +134,7 @@ class GraphEdge(BaseModel):
     relationship_type: str
     confidence: float = 1.0
     source_document_id: Optional[str] = None
+    evidence_snippet: Optional[str] = None
 
 
 class InvestigationGraphResponse(BaseModel):

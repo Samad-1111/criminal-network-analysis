@@ -1309,24 +1309,31 @@ export default function DocumentUploadPanel({
                                 </span>
                               </div>
 
+                              {pState.summary.entitiesSaved === 0 && pState.summary.relationshipsSaved === 0 && (
+                                <div className="text-[11px] text-amber-300 bg-amber-950/40 border border-amber-800/50 rounded px-2.5 py-1 flex items-center gap-1.5 font-medium">
+                                  <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                  <span>No new records added — existing intelligence was reused.</span>
+                                </div>
+                              )}
+
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center pt-1">
                                 <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
-                                  <div className="text-[10px] text-slate-400 uppercase">Entities Saved</div>
+                                  <div className="text-[10px] text-slate-400 uppercase">New Entities Saved</div>
                                   <div className="text-base font-bold text-amber-400">
                                     {pState.summary.entitiesSaved}
                                   </div>
                                   <div className="text-[9px] text-slate-500 font-mono">
-                                    Total: {pState.summary.entitiesTotal}
+                                    Entities Found: {pState.summary.entitiesTotal}
                                   </div>
                                 </div>
 
                                 <div className="p-2 rounded bg-slate-900/80 border border-slate-800">
-                                  <div className="text-[10px] text-slate-400 uppercase">Relationships Saved</div>
+                                  <div className="text-[10px] text-slate-400 uppercase">New Relationships Saved</div>
                                   <div className="text-base font-bold text-emerald-400">
                                     {pState.summary.relationshipsSaved}
                                   </div>
                                   <div className="text-[9px] text-slate-500 font-mono">
-                                    Total: {pState.summary.relationshipsTotal}
+                                    Relationships Found: {pState.summary.relationshipsTotal}
                                   </div>
                                 </div>
 

@@ -167,7 +167,7 @@ def extract_entities_from_text(text: str) -> Dict[str, List[Dict[str, Any]]]:
 
         # Remove investigation keywords accidentally captured as part of a name
         person_name = re.sub(
-            r"\s+\b(alias|aka)\b$",
+            r"\s+\b(alias|aka|near|at|from|in|with|on|to|by|was|seen|spotted|located|driving|travelling|traveling)\b.*$",
             "",
             person_name,
             flags=re.IGNORECASE,

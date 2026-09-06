@@ -129,7 +129,8 @@ def get_investigation_graph(
                 "target": str(r.target_entity_id),
                 "relationship_type": r.relationship_type,
                 "confidence": r.confidence,
-                "source_document_id": str(r.source_document_id) if r.source_document_id else None,
+                "source_document_id": str(r.source_document_id) if getattr(r, "source_document_id", None) else None,
+                "evidence_snippet": getattr(r, "evidence_snippet", None),
             })
 
     return {

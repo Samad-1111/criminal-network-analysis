@@ -212,6 +212,7 @@ def create_relationship(
         relationship_type=relationship.relationship_type,
         confidence=relationship.confidence,
         source_document_id=relationship.source_document_id,
+        evidence_snippet=relationship.evidence_snippet,
     )
     db.add(db_obj)
     db.commit()
@@ -252,6 +253,7 @@ def get_or_create_relationship(
     relationship_type: str,
     confidence: float,
     source_document_id: Optional[uuid.UUID] = None,
+    evidence_snippet: Optional[str] = None,
 ) -> tuple[Relationship, bool]:
     """Return existing relationship or create a new one. Returns (relationship, was_created)."""
     existing = get_relationship_by_unique_key(
@@ -266,6 +268,7 @@ def get_or_create_relationship(
         relationship_type=relationship_type,
         confidence=confidence,
         source_document_id=source_document_id,
+        evidence_snippet=evidence_snippet,
     )
     db.add(db_obj)
     db.commit()
